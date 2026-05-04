@@ -1,0 +1,6 @@
+@PrecoBoi.Api_HostAddress = http://localhost:5283
+
+GET {{PrecoBoi.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
