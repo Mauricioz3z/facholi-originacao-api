@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Mauricio\\Documents\\projetoprecogado\\backend\\PrecoBoi.Api.csproj": {}
+    "C:\\Users\\pc-129-93423\\Documents\\facholi-originacao-api\\PrecoBoi.Api.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Mauricio\\Documents\\projetoprecogado\\backend\\PrecoBoi.Api.csproj": {
+    "C:\\Users\\pc-129-93423\\Documents\\facholi-originacao-api\\PrecoBoi.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Mauricio\\Documents\\projetoprecogado\\backend\\PrecoBoi.Api.csproj",
+        "projectUniqueName": "C:\\Users\\pc-129-93423\\Documents\\facholi-originacao-api\\PrecoBoi.Api.csproj",
         "projectName": "PrecoBoi.Api",
-        "projectPath": "C:\\Users\\Mauricio\\Documents\\projetoprecogado\\backend\\PrecoBoi.Api.csproj",
-        "packagesPath": "C:\\Users\\Mauricio\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Mauricio\\Documents\\projetoprecogado\\backend\\obj\\",
+        "projectPath": "C:\\Users\\pc-129-93423\\Documents\\facholi-originacao-api\\PrecoBoi.Api.csproj",
+        "packagesPath": "C:\\Users\\pc-129-93423\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\pc-129-93423\\Documents\\facholi-originacao-api\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\Mauricio\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\pc-129-93423\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -25,8 +25,8 @@
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "https://api.nuget.org/v3/index.json": {}
+          "https://api.nuget.org/v3/index.json": {},
+          "https://nuget.pkg.github.com/ti-unoeste/index.json": {}
         },
         "frameworks": {
           "net8.0": {
