@@ -8,12 +8,27 @@ var hash = BCrypt.Net.BCrypt.HashPassword("Admin@2026");
 Console.WriteLine($"Hash: {hash}");
 Console.WriteLine($"SQL: UPDATE usuarios SET senha_hash='{hash}' WHERE email='admin@precoboi.com.br';");
 
-Admin
+Credencias adminsitrador
 
-admin@precoboi.com.br
+Email: admin@precoboi.com.br
 
-Admin@2026
+Senha: Admin@2026
+Credencias Comprador
+ Email: comprador@facholi.com.br
+ senha:facholi123
 
-comprador
+Apara o comprador tem aparencia de aplicativo 
 
-	comprador@facholi.com.br
+Para o adminsitrador tem aparencia desktop (computador)
+
+
+link de acesso: https://app-precogado.wdevdigital.com.br/login
+
+para adicionar na ela inicial do  android: 
+
+
+para adicionar na ela inicial do  IOS: 
+
+
+
+	
