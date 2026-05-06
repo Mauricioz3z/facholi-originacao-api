@@ -7,3 +7,13 @@
 var hash = BCrypt.Net.BCrypt.HashPassword("Admin@2026");
 Console.WriteLine($"Hash: {hash}");
 Console.WriteLine($"SQL: UPDATE usuarios SET senha_hash='{hash}' WHERE email='admin@precoboi.com.br';");
+
+Admin
+
+admin@precoboi.com.br
+
+Admin@2026
+
+comprador
+
+	comprador@facholi.com.br
