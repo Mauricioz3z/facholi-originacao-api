@@ -6,7 +6,7 @@ using Npgsql;
 namespace PrecoBoi.Api.Controllers;
 
 [ApiController]
-[Route("debug")]
+[Route("api/debug")]
 public class DebugController : ControllerBase
 {
     private readonly IConfiguration _config;
