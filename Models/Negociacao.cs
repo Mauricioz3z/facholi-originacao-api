@@ -16,7 +16,7 @@ public class Negociacao
     public DateTime? DataPrevistaEntrega { get; set; }
     public string Status { get; set; } = "EmNegociacao"; // EmNegociacao, Fechado
     public DateTime? DataFechamento { get; set; }
-    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
     public DateTime? AtualizadoEm { get; set; }
     public List<NegociacaoItem> Itens { get; set; } = new();
 }

@@ -10,5 +10,5 @@ public class Corretor
     public string Propriedade { get; set; } = string.Empty;
     public string Observacoes { get; set; } = string.Empty;
     public bool Ativo { get; set; } = true;
-    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
 }

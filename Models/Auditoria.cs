@@ -10,6 +10,6 @@ public class Auditoria
     public string? ValorNovo { get; set; }
     public int? UsuarioId { get; set; }
     public string UsuarioNome { get; set; } = string.Empty;
-    public DateTime DataHora { get; set; } = DateTime.UtcNow;
+    public DateTime DataHora { get; set; } = DateTime.Now;
     public string Descricao { get; set; } = string.Empty;
 }

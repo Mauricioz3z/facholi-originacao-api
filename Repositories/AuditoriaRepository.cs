@@ -21,7 +21,7 @@ public class AuditoriaRepository : BaseRepository
                 Tabela = tabela, RegistroId = registroId, Campo = campo,
                 ValorAnterior = valorAnterior, ValorNovo = valorNovo,
                 UsuarioId = usuarioId, UsuarioNome = usuarioNome,
-                DataHora = DateTime.UtcNow, Descricao = descricao
+                DataHora = DateTime.Now, Descricao = descricao
             });
     }
 

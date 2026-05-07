@@ -9,5 +9,5 @@ public class Usuario
     public string Telefone { get; set; } = string.Empty;
     public string Perfil { get; set; } = string.Empty; // Admin, Comprador
     public bool Ativo { get; set; } = true;
-    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
 }

@@ -41,7 +41,7 @@ public class NegociacaoService
             MunicipioDestinoId = request.MunicipioDestinoId,
             DataPrevistaEntrega = request.DataPrevistaEntrega,
             Status = "EmNegociacao",
-            CriadoEm = DateTime.UtcNow
+            CriadoEm = DateTime.Now
         };
 
         negociacao.Itens = await CalcularItens(request.Itens, municipioOrigem);
@@ -84,7 +84,7 @@ public class NegociacaoService
         negExistente.MunicipioOrigemId = request.MunicipioOrigemId;
         negExistente.MunicipioDestinoId = request.MunicipioDestinoId;
         negExistente.DataPrevistaEntrega = request.DataPrevistaEntrega;
-        negExistente.AtualizadoEm = DateTime.UtcNow;
+        negExistente.AtualizadoEm = DateTime.Now;
         negExistente.Itens = await CalcularItens(request.Itens, municipioOrigem);
 
         // Auditar alterações nos itens (comparando pelo categoriaId)

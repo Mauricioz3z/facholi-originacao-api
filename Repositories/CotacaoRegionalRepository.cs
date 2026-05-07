@@ -61,7 +61,7 @@ public class CotacaoRegionalRepository : BaseRepository
             id = await conn.ExecuteScalarAsync<int>(
                 @"INSERT INTO cotacoes_regionais (uf, praca_referencia_uf, valor_arroba, atualizado_em)
                   VALUES (@Uf, @PracaReferenciaUf, @ValorArroba, @AtualizadoEm) RETURNING id",
-                new { cotacao.Uf, cotacao.PracaReferenciaUf, cotacao.ValorArroba, AtualizadoEm = DateTime.UtcNow });
+                new { cotacao.Uf, cotacao.PracaReferenciaUf, cotacao.ValorArroba, AtualizadoEm = DateTime.Now });
         }
         else
         {
@@ -69,7 +69,7 @@ public class CotacaoRegionalRepository : BaseRepository
             await conn.ExecuteAsync(
                 @"UPDATE cotacoes_regionais SET praca_referencia_uf=@PracaReferenciaUf,
                   valor_arroba=@ValorArroba, atualizado_em=@AtualizadoEm WHERE id=@Id",
-                new { cotacao.PracaReferenciaUf, cotacao.ValorArroba, AtualizadoEm = DateTime.UtcNow, Id = id });
+                new { cotacao.PracaReferenciaUf, cotacao.ValorArroba, AtualizadoEm = DateTime.Now, Id = id });
         }
 
         await conn.ExecuteAsync("DELETE FROM agios_cotacao WHERE cotacao_regional_id=@Id", new { Id = id });

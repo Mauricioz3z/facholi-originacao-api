@@ -77,7 +77,7 @@ public class NegociacaoRepository : BaseRepository
         using var conn = CreateConnection();
         await conn.ExecuteAsync(
             "UPDATE negociacoes SET status='Fechado', data_fechamento=@DataFechamento WHERE id=@Id",
-            new { Id = id, DataFechamento = DateTime.UtcNow });
+            new { Id = id, DataFechamento = DateTime.Now });
     }
 
     public async Task AtualizarItemEntrega(int itemId, int qtdEntregue, string statusEntrega)
