@@ -80,6 +80,12 @@ public class NegociacaoRepository : BaseRepository
             new { Id = id, DataFechamento = DateTime.Now });
     }
 
+    public async Task Excluir(int id)
+    {
+        using var conn = CreateConnection();
+        await conn.ExecuteAsync("DELETE FROM negociacoes WHERE id=@Id", new { Id = id });
+    }
+
     public async Task AtualizarItemEntrega(int itemId, int qtdEntregue, string statusEntrega)
     {
         using var conn = CreateConnection();

@@ -55,8 +55,30 @@ public class NegociacoesController : ControllerBase
     {
         try
         {
-            var neg = await _negService.Atualizar(id, request, ObterUsuarioId(), ObterUsuarioNome());
+            var neg = await _negService.Atualizar(id, request, ObterUsuarioId(), ObterUsuarioNome(), ObterUsuarioPerfil());
             return Ok(neg);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { mensagem = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { mensagem = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Excluir(int id)
+    {
+        try
+        {
+            await _negService.Excluir(id, ObterUsuarioId(), ObterUsuarioNome(), ObterUsuarioPerfil());
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { mensagem = ex.Message });
         }
         catch (Exception ex)
         {
@@ -100,4 +122,7 @@ public class NegociacoesController : ControllerBase
 
     private string ObterUsuarioNome() =>
         User.FindFirstValue(ClaimTypes.Name) ?? "";
+
+    private string ObterUsuarioPerfil() =>
+        User.FindFirstValue(ClaimTypes.Role) ?? "";
 }

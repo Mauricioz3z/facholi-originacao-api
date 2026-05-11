@@ -54,13 +54,16 @@ public class NegociacaoService
         return await _negRepo.ObterPorId(id) ?? negociacao;
     }
 
-    public async Task<Negociacao> Atualizar(int id, NegociacaoRequest request, int usuarioId, string usuarioNome)
+    public async Task<Negociacao> Atualizar(int id, NegociacaoRequest request, int usuarioId, string usuarioNome, string usuarioPerfil)
     {
         var negExistente = await _negRepo.ObterPorId(id)
             ?? throw new Exception("Negociação não encontrada");
 
         if (negExistente.Status == "Fechado")
             throw new Exception("Negociação fechada não pode ser editada");
+
+        if (usuarioPerfil != "Admin" && negExistente.CompradorId != usuarioId)
+            throw new UnauthorizedAccessException("Você só pode editar negociações que criou.");
 
         var municipioOrigem = await _munOrigemRepo.ObterPorId(request.MunicipioOrigemId)
             ?? throw new Exception("Município de origem não encontrado");
@@ -132,6 +135,20 @@ public class NegociacaoService
             $"Negociação {negExistente.Numero} atualizada");
 
         return await _negRepo.ObterPorId(id) ?? negExistente;
+    }
+
+    public async Task Excluir(int id, int usuarioId, string usuarioNome, string usuarioPerfil)
+    {
+        var neg = await _negRepo.ObterPorId(id)
+            ?? throw new Exception("Negociação não encontrada");
+
+        if (usuarioPerfil != "Admin" && neg.CompradorId != usuarioId)
+            throw new UnauthorizedAccessException("Você só pode excluir negociações que criou.");
+
+        await _auditoriaRepo.Registrar("negociacoes", id, "exclusao", neg.Numero, null,
+            usuarioId, usuarioNome, $"Negociação {neg.Numero} excluída (status: {neg.Status})");
+
+        await _negRepo.Excluir(id);
     }
 
     public async Task Fechar(int id, int usuarioId, string usuarioNome)
