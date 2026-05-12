@@ -6,7 +6,7 @@ public record MunicipioOrigemRequest(string Nome, string Uf, decimal DistanciaKm
 
 public record MunicipioDestinoRequest(string Nome, string Uf, bool Padrao);
 
-public record CategoriaRequest(string Nome, decimal PesoMin, decimal PesoMax, decimal PesoMedio, int CabCaminhao, int Ordem);
+public record CategoriaRequest(string Nome, decimal PesoMin, decimal PesoMax, decimal PesoMedio, int CabCaminhao, int Ordem, decimal? AgioPadrao = null);
 
 public record IcmsRequest(string Uf, decimal Aliquota, decimal Recuperacao);
 

@@ -158,6 +158,43 @@ public class CadastrosController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("categorias")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CriarCategoria([FromBody] CategoriaRequest req)
+    {
+        if (req.PesoMin < 0 || req.PesoMax <= req.PesoMin)
+            return BadRequest(new { mensagem = "Faixa de peso inválida (mín deve ser menor que máx)." });
+        if (req.PesoMedio < req.PesoMin || req.PesoMedio > req.PesoMax)
+            return BadRequest(new { mensagem = "Peso médio deve estar dentro da faixa." });
+        if (req.CabCaminhao <= 0)
+            return BadRequest(new { mensagem = "Cabeças por caminhão deve ser maior que zero." });
+
+        var cat = new Categoria
+        {
+            Nome = req.Nome,
+            PesoMin = req.PesoMin,
+            PesoMax = req.PesoMax,
+            PesoMedio = req.PesoMedio,
+            CabCaminhao = req.CabCaminhao,
+            Ordem = req.Ordem
+        };
+        var id = await _catRepo.Criar(cat, req.AgioPadrao ?? 0m);
+        cat.Id = id;
+        return CreatedAtAction(nameof(ListarCategorias), new { id }, cat);
+    }
+
+    [HttpDelete("categorias/{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ExcluirCategoria(int id)
+    {
+        var uso = await _catRepo.ContarUsoEmNegociacoes(id);
+        if (uso > 0)
+            return BadRequest(new { mensagem = $"Categoria está em uso em {uso} item(ns) de negociação e não pode ser excluída." });
+
+        await _catRepo.Excluir(id);
+        return NoContent();
+    }
+
     // === ICMS ===
     [HttpGet("icms")]
     public async Task<IActionResult> ListarIcms() => Ok(await _icmsRepo.Listar());
