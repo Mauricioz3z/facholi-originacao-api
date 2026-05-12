@@ -33,3 +33,14 @@ public record SimulacaoItemResponse(
     decimal ValorIcms,
     decimal ValorComissao
 );
+
+public record OportunidadeItemResponse(
+    int MunicipioId,
+    string Nome,
+    string Uf,
+    decimal DistanciaKm,
+    decimal FreteKg,
+    decimal ValorIcms,
+    decimal ValorComissao,
+    decimal PrecoPraca
+);

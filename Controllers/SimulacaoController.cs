@@ -56,6 +56,28 @@ public class SimulacaoController : ControllerBase
             municipioDestino.Id, municipioDestino.Nome, itensResponse));
     }
 
+    [HttpGet("oportunidades")]
+    public async Task<IActionResult> Oportunidades([FromQuery] int categoriaId, [FromQuery] decimal precoColocado)
+    {
+        var categoria = await _catRepo.ObterPorId(categoriaId);
+        if (categoria == null) return BadRequest(new { mensagem = "Categoria não encontrada" });
+        if (precoColocado <= 0) return BadRequest(new { mensagem = "Informe um preço colocado válido" });
+
+        var origens = await _munOrigemRepo.Listar(ativo: true);
+        var resultados = new List<OportunidadeItemResponse>();
+
+        foreach (var origem in origens)
+        {
+            var resultado = await _calculoService.CalcularPraca(precoColocado, origem, categoria);
+            resultados.Add(new OportunidadeItemResponse(
+                origem.Id, origem.Nome, origem.Uf, origem.DistanciaKm,
+                resultado.FreteKg, resultado.ValorIcms, resultado.ValorComissao,
+                resultado.PrecoPraca));
+        }
+
+        return Ok(resultados.OrderByDescending(r => r.PrecoPraca).ToList());
+    }
+
     // Retorna simulação completa para todas as categorias dado origem/destino
     [HttpGet("rapida")]
     public async Task<IActionResult> SimulacaoRapida([FromQuery] int origemId, [FromQuery] int destinoId)
