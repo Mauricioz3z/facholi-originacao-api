@@ -262,8 +262,12 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("resumo-cabecas")]
-    public async Task<IActionResult> ResumoCabecas()
+    public async Task<IActionResult> ResumoCabecas([FromQuery] int? mock = null)
     {
+        // === Modo MOCK para testes de UI (não consulta o banco) ===
+        // Uso: GET /api/dashboard/resumo-cabecas?mock=1 (ou 2, 3, 4)
+        if (mock.HasValue) return Ok(GerarMock(mock.Value));
+
         var connStr = _config.GetConnectionString("DefaultConnection")!;
         using var conn = new NpgsqlConnection(connStr);
 
@@ -292,7 +296,76 @@ public class DashboardController : ControllerBase
             totalFechadas  += Convert.ToInt64(r.cb_fechadas);
         }
 
-        return Ok(new { totalAndamento, totalFechadas, porCategoria });
+        var contagemSql = @"
+            SELECT
+                COALESCE(SUM(CASE WHEN status = 'EmNegociacao' THEN 1 ELSE 0 END), 0) AS neg_andamento,
+                COALESCE(SUM(CASE WHEN status = 'Fechado'      THEN 1 ELSE 0 END), 0) AS neg_fechadas
+            FROM negociacoes";
+        var contagem = await conn.QueryFirstAsync(contagemSql);
+        long negociacoesAndamento = Convert.ToInt64(contagem.neg_andamento);
+        long negociacoesFechadas  = Convert.ToInt64(contagem.neg_fechadas);
+
+        return Ok(new
+        {
+            totalAndamento,
+            totalFechadas,
+            negociacoesAndamento,
+            negociacoesFechadas,
+            porCategoria
+        });
+    }
+
+    private static object GerarMock(int preset)
+    {
+        // Presets crescentes para testar a renderização do front com diferentes magnitudes
+        (long negA, long cbA, long negF, long cbF) = preset switch
+        {
+            1 => (22L,        250L,         350L,          2_530L),       // realidade atual
+            2 => (480L,       12_500L,      1_250L,        85_000L),      // ~final de ano
+            3 => (3_500L,     95_000L,      12_500L,       450_000L),     // grande empresa
+            4 => (25_000L,    1_250_000L,   180_000L,      12_500_000L),  // gigante
+            _ => (22L,        250L,         350L,          2_530L)
+        };
+
+        // Distribuição aproximada por categoria (5 categorias do seed)
+        var categoriasNomes = new[]
+        {
+            ("Bezerro", 200m, 240m, 1),
+            ("Bezerro", 241m, 270m, 2),
+            ("Garrote", 271m, 300m, 3),
+            ("Garrote", 301m, 330m, 4),
+            ("Boi",     331m, 360m, 5),
+            ("Boi",     361m, 390m, 6),
+        };
+
+        // Pesos arbitrários para distribuir o total entre categorias (somam 100)
+        var pesosA = new[] { 8, 18, 22, 20, 18, 14 };
+        var pesosF = new[] { 5, 15, 20, 22, 22, 16 };
+
+        var porCategoria = new List<object>();
+        for (int i = 0; i < categoriasNomes.Length; i++)
+        {
+            var (nome, pmin, pmax, ord) = categoriasNomes[i];
+            porCategoria.Add(new
+            {
+                categoria   = nome,
+                ordem       = ord,
+                peso_min    = pmin,
+                peso_max    = pmax,
+                cb_andamento = (long)Math.Round(cbA * (pesosA[i] / 100.0)),
+                cb_fechadas  = (long)Math.Round(cbF * (pesosF[i] / 100.0))
+            });
+        }
+
+        return new
+        {
+            totalAndamento       = cbA,
+            totalFechadas        = cbF,
+            negociacoesAndamento = negA,
+            negociacoesFechadas  = negF,
+            porCategoria,
+            __mock               = preset
+        };
     }
 
     private string BuildWhere(NegociacaoFiltroRequest filtro, out DynamicParameters parameters)
