@@ -129,6 +129,22 @@ CREATE TABLE IF NOT EXISTS auditoria (
     descricao      TEXT          NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS negociacao_contadores (
+    ano           INTEGER PRIMARY KEY,
+    ultimo_numero INTEGER NOT NULL DEFAULT 0
+);
+
+-- Seed do contador a partir de negociações já existentes.
+-- Idempotente: só insere anos ainda não presentes na tabela de contadores.
+INSERT INTO negociacao_contadores (ano, ultimo_numero)
+SELECT
+    CAST(SPLIT_PART(numero, '/', 2) AS INTEGER) AS ano,
+    MAX(CAST(SPLIT_PART(numero, '/', 1) AS INTEGER)) AS ultimo
+FROM negociacoes
+WHERE numero ~ '^[0-9]+/[0-9]{4}$'
+GROUP BY 1
+ON CONFLICT (ano) DO NOTHING;
+
 -- ============================================================
 -- ÍNDICES
 -- ============================================================

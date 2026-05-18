@@ -12,10 +12,16 @@ public class NegociacaoRepository : BaseRepository
     {
         using var conn = CreateConnection();
         var ano = DateTime.Now.Year;
-        var count = await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM negociacoes WHERE numero LIKE @Pattern",
-            new { Pattern = $"%/{ano}" });
-        return $"{count + 1:D3}/{ano}";
+
+        var proximo = await conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO negociacao_contadores (ano, ultimo_numero)
+              VALUES (@Ano, 1)
+              ON CONFLICT (ano) DO UPDATE
+              SET ultimo_numero = negociacao_contadores.ultimo_numero + 1
+              RETURNING ultimo_numero",
+            new { Ano = ano });
+
+        return $"{proximo:D3}/{ano}";
     }
 
     public async Task<int> Criar(Negociacao neg)
