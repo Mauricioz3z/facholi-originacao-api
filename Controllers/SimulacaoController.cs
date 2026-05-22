@@ -93,16 +93,21 @@ public class SimulacaoController : ControllerBase
             var resultado = _calculoService.CalcularPraca(precoColocado, origem, categoria, icms, config);
             var cotacaoPracaKg = _calculoService.CalcularCotacaoPracaKg(cotacao, categoria);
 
-            // Deságio/ágio do preço objetivo em relação à cotação local da praça.
+            // Valor cru da cotação da UF (R$/@), sem ágio da categoria.
+            // Diretoria pediu para exibir o valor "oficial" da praça e usar como referência do deságio.
+            var valorArrobaUf = cotacao?.ValorArroba ?? 0m;
+            var cotacaoCruaKg = valorArrobaUf / 30m;
+
+            // Deságio: compara o preço colocado (R$/kg) com a cotação CRUA da praça em R$/kg.
             // Positivo = pagando acima da praça (favorável). Negativo = abaixo (difícil).
-            decimal? desagioPct = cotacaoPracaKg > 0
-                ? (resultado.PrecoPraca / cotacaoPracaKg - 1m) * 100m
+            decimal? desagioPct = cotacaoCruaKg > 0
+                ? (resultado.PrecoPraca / cotacaoCruaKg - 1m) * 100m
                 : null;
 
             resultados.Add(new OportunidadeItemResponse(
                 origem.Id, origem.Nome, origem.Uf, origem.DistanciaKm,
                 resultado.FreteKg, resultado.ValorIcms, resultado.ValorComissao,
-                resultado.PrecoPraca, cotacaoPracaKg, desagioPct));
+                resultado.PrecoPraca, cotacaoPracaKg, desagioPct, valorArrobaUf));
         }
 
         // Ranking: melhor oportunidade = maior ágio (positivo) → maior deságio (negativo).

@@ -43,8 +43,9 @@ public record OportunidadeItemResponse(
     decimal ValorIcms,
     decimal ValorComissao,
     decimal PrecoPraca,
-    decimal CotacaoPracaKg,           // cotação local da praça em R$/kg para a categoria
-    decimal? DesagioPercentual        // (PrecoPraca / CotacaoPracaKg − 1) × 100; null se UF sem cotação
+    decimal CotacaoPracaKg,           // cotação local da praça em R$/kg para a categoria (com ágio) — uso interno
+    decimal? DesagioPercentual,       // (PrecoPraca / (ValorArrobaUf / 30) − 1) × 100; comparação contra cotação CRUA
+    decimal ValorArrobaUf             // valor_arroba CRU de cotacoes_regionais (R$/@), sem ágio da categoria
 );
 
 // Modo B (sem ICMS): cotação da praça + frete, sem deduzir ICMS
