@@ -44,3 +44,14 @@ public record OportunidadeItemResponse(
     decimal ValorComissao,
     decimal PrecoPraca
 );
+
+// Modo B (sem ICMS): cotação da praça + frete, sem deduzir ICMS
+public record OportunidadePracaItemResponse(
+    int MunicipioId,
+    string Nome,
+    string Uf,
+    decimal DistanciaKm,
+    decimal FreteKg,
+    decimal CotacaoPracaKg,    // cotação da praça da UF convertida em R$/kg para a categoria
+    decimal CustoColocadoKg    // = CotacaoPracaKg + FreteKg
+);
