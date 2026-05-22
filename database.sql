@@ -204,6 +204,7 @@ INSERT INTO cotacoes_regionais (uf, praca_referencia_uf, valor_arroba, atualizad
     ('AM', 'RO', 0.00,   CURRENT_TIMESTAMP),
     ('MG', NULL, 310.00, CURRENT_TIMESTAMP),
     ('SP', NULL, 308.00, CURRENT_TIMESTAMP),
+    ('RJ', NULL, 308.00, CURRENT_TIMESTAMP),
     ('PR', NULL, 305.00, CURRENT_TIMESTAMP),
     ('RS', NULL, 295.00, CURRENT_TIMESTAMP),
     ('SC', NULL, 296.00, CURRENT_TIMESTAMP),

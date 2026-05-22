@@ -25,7 +25,18 @@ public class CalculoService
     {
         var icms = await _icmsRepo.ObterPorUf(municipioOrigem.Uf);
         var config = await _configRepo.Obter();
+        return CalcularPraca(precoColocado, municipioOrigem, categoria, icms, config);
+    }
 
+    // Overload sem I/O — para uso em loops (ex.: ranking de oportunidades) carregando
+    // ICMS e config uma única vez fora do loop. Evita N+1 de conexões/queries.
+    public ResultadoCalculo CalcularPraca(
+        decimal precoColocado,
+        MunicipioOrigem municipioOrigem,
+        Categoria categoria,
+        Icms? icms,
+        ConfigComissao? config)
+    {
         var freteKg = CalcularFreteKg(municipioOrigem, categoria);
         var valorNaCompra = precoColocado - freteKg;
         var icmsEfetivo = icms?.IcmsEfetivo ?? 0m;
@@ -33,7 +44,6 @@ public class CalculoService
         var valorComissao = config != null && config.Ativo ? valorNaCompra * (config.Percentual / 100m) : 0m;
         var precoPraca = valorNaCompra - valorIcms - valorComissao;
 
-        // Arredondamento para baixo, 1 casa decimal
         precoPraca = ArredondarParaBaixo(precoPraca);
 
         return new ResultadoCalculo
@@ -106,6 +116,43 @@ public class CalculoService
         return valorPorCabeca / categoria.PesoMedio;
     }
 
+    // Direção 3 (Mapa de Oportunidades — Modo B, sem ICMS):
+    // Custo de buscar o animal na origem = cotação da praça (R$/kg) + frete (R$/kg)
+    // CotacaoPracaKg = (ValorArroba / 30) × (1 + Ágio% da categoria na UF)
+    public async Task<ResultadoCustoColocado> CalcularCustoColocado(
+        MunicipioOrigem municipioOrigem,
+        Categoria categoria)
+    {
+        var cotacao = await _cotacaoRepo.ObterPorUf(municipioOrigem.Uf);
+        return CalcularCustoColocado(municipioOrigem, categoria, cotacao);
+    }
+
+    // Overload sem I/O — carrega cotações uma única vez fora do loop.
+    public ResultadoCustoColocado CalcularCustoColocado(
+        MunicipioOrigem municipioOrigem,
+        Categoria categoria,
+        CotacaoRegional? cotacao)
+    {
+        var cotacaoPracaKg = CalcularCotacaoPracaKg(cotacao, categoria);
+        var freteKg = CalcularFreteKg(municipioOrigem, categoria);
+
+        return new ResultadoCustoColocado
+        {
+            CotacaoPracaKg = cotacaoPracaKg,
+            FreteKg = freteKg,
+            CustoColocadoKg = cotacaoPracaKg + freteKg
+        };
+    }
+
+    // Converte cotação da praça (R$/@) em R$/kg para a categoria, aplicando o ágio cadastrado.
+    public decimal CalcularCotacaoPracaKg(CotacaoRegional? cotacao, Categoria categoria)
+    {
+        if (cotacao == null || cotacao.ValorArroba <= 0) return 0;
+        var agio = cotacao.Agios?.FirstOrDefault(a => a.CategoriaId == categoria.Id);
+        var percentual = agio != null ? agio.Percentual / 100m : 0m;
+        return (cotacao.ValorArroba / 30m) * (1 + percentual);
+    }
+
     public decimal ArredondarParaBaixo(decimal valor)
     {
         return Math.Floor(valor * 10) / 10;
@@ -120,4 +167,11 @@ public class ResultadoCalculo
     public decimal ValorIcms { get; set; }
     public decimal ValorComissao { get; set; }
     public decimal ValorNaCompra { get; set; }
+}
+
+public class ResultadoCustoColocado
+{
+    public decimal CotacaoPracaKg { get; set; }
+    public decimal FreteKg { get; set; }
+    public decimal CustoColocadoKg { get; set; }
 }

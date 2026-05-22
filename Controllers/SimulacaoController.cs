@@ -15,17 +15,26 @@ public class SimulacaoController : ControllerBase
     private readonly MunicipioOrigemRepository _munOrigemRepo;
     private readonly MunicipioDestinoRepository _munDestinoRepo;
     private readonly CategoriaRepository _catRepo;
+    private readonly IcmsRepository _icmsRepo;
+    private readonly ConfigComissaoRepository _configRepo;
+    private readonly CotacaoRegionalRepository _cotacaoRepo;
 
     public SimulacaoController(
         CalculoService calculoService,
         MunicipioOrigemRepository munOrigemRepo,
         MunicipioDestinoRepository munDestinoRepo,
-        CategoriaRepository catRepo)
+        CategoriaRepository catRepo,
+        IcmsRepository icmsRepo,
+        ConfigComissaoRepository configRepo,
+        CotacaoRegionalRepository cotacaoRepo)
     {
         _calculoService = calculoService;
         _munOrigemRepo = munOrigemRepo;
         _munDestinoRepo = munDestinoRepo;
         _catRepo = catRepo;
+        _icmsRepo = icmsRepo;
+        _configRepo = configRepo;
+        _cotacaoRepo = cotacaoRepo;
     }
 
     [HttpPost]
@@ -63,12 +72,21 @@ public class SimulacaoController : ControllerBase
         if (categoria == null) return BadRequest(new { mensagem = "Categoria não encontrada" });
         if (precoColocado <= 0) return BadRequest(new { mensagem = "Informe um preço colocado válido" });
 
-        var origens = await _munOrigemRepo.Listar(ativo: true);
-        var resultados = new List<OportunidadeItemResponse>();
+        // Carrega dados de referência UMA VEZ (evita N+1 dentro do loop de origens)
+        var origensTask = _munOrigemRepo.Listar(ativo: true);
+        var icmsTask = _icmsRepo.Listar();
+        var configTask = _configRepo.Obter();
+        await Task.WhenAll(origensTask, icmsTask, configTask);
 
+        var origens = await origensTask;
+        var icmsPorUf = (await icmsTask).ToDictionary(i => i.Uf, StringComparer.OrdinalIgnoreCase);
+        var config = await configTask;
+
+        var resultados = new List<OportunidadeItemResponse>();
         foreach (var origem in origens)
         {
-            var resultado = await _calculoService.CalcularPraca(precoColocado, origem, categoria);
+            icmsPorUf.TryGetValue(origem.Uf, out var icms);
+            var resultado = _calculoService.CalcularPraca(precoColocado, origem, categoria, icms, config);
             resultados.Add(new OportunidadeItemResponse(
                 origem.Id, origem.Nome, origem.Uf, origem.DistanciaKm,
                 resultado.FreteKg, resultado.ValorIcms, resultado.ValorComissao,
@@ -76,6 +94,40 @@ public class SimulacaoController : ControllerBase
         }
 
         return Ok(resultados.OrderByDescending(r => r.PrecoPraca).ToList());
+    }
+
+    // Modo B (sem ICMS): ranking ordenado pelo menor custo colocado (praça + frete)
+    [HttpGet("oportunidades-praca")]
+    public async Task<IActionResult> OportunidadesPorPraca([FromQuery] int categoriaId)
+    {
+        var categoria = await _catRepo.ObterPorId(categoriaId);
+        if (categoria == null) return BadRequest(new { mensagem = "Categoria não encontrada" });
+
+        // Carrega dados de referência UMA VEZ (evita N+1)
+        var origensTask = _munOrigemRepo.Listar(ativo: true);
+        var cotacoesTask = _cotacaoRepo.Listar();
+        await Task.WhenAll(origensTask, cotacoesTask);
+
+        var origens = await origensTask;
+        var cotacoesPorUf = (await cotacoesTask).ToDictionary(c => c.Uf, StringComparer.OrdinalIgnoreCase);
+
+        var resultados = new List<OportunidadePracaItemResponse>();
+        foreach (var origem in origens)
+        {
+            cotacoesPorUf.TryGetValue(origem.Uf, out var cotacao);
+
+            // Pula origens cuja UF não tem cotação ativa (valor_arroba <= 0):
+            // significa que a praça não está comprando — incluí-las distorce o ranking,
+            // já que custo = 0 + frete daria a falsa impressão de oportunidade barata.
+            if (cotacao == null || cotacao.ValorArroba <= 0) continue;
+
+            var resultado = _calculoService.CalcularCustoColocado(origem, categoria, cotacao);
+            resultados.Add(new OportunidadePracaItemResponse(
+                origem.Id, origem.Nome, origem.Uf, origem.DistanciaKm,
+                resultado.FreteKg, resultado.CotacaoPracaKg, resultado.CustoColocadoKg));
+        }
+
+        return Ok(resultados.OrderBy(r => r.CustoColocadoKg).ToList());
     }
 
     // Retorna simulação completa para todas as categorias dado origem/destino

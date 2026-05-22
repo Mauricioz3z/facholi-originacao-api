@@ -13,8 +13,21 @@ public class CotacaoRegionalRepository : BaseRepository
         var cotacoes = (await conn.QueryAsync<CotacaoRegional>(
             "SELECT * FROM cotacoes_regionais ORDER BY uf")).ToList();
 
+        if (cotacoes.Count == 0) return cotacoes;
+
+        // Carrega todos os ágios numa única query (evita N+1 no loop)
+        var agios = (await conn.QueryAsync<AgioCotacao>(
+            @"SELECT a.*, c.nome as categoria_nome, c.peso_min, c.peso_max
+              FROM agios_cotacao a
+              JOIN categorias c ON c.id = a.categoria_id
+              ORDER BY a.cotacao_regional_id, c.ordem")).ToList();
+
+        var agiosPorCotacao = agios
+            .GroupBy(a => a.CotacaoRegionalId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         foreach (var cotacao in cotacoes)
-            cotacao.Agios = (await ObterAgios(cotacao.Id, conn)).ToList();
+            cotacao.Agios = agiosPorCotacao.TryGetValue(cotacao.Id, out var lista) ? lista : new List<AgioCotacao>();
 
         return cotacoes;
     }
