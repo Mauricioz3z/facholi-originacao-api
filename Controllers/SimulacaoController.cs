@@ -76,24 +76,41 @@ public class SimulacaoController : ControllerBase
         var origensTask = _munOrigemRepo.Listar(ativo: true);
         var icmsTask = _icmsRepo.Listar();
         var configTask = _configRepo.Obter();
-        await Task.WhenAll(origensTask, icmsTask, configTask);
+        var cotacoesTask = _cotacaoRepo.Listar();
+        await Task.WhenAll(origensTask, icmsTask, configTask, cotacoesTask);
 
         var origens = await origensTask;
         var icmsPorUf = (await icmsTask).ToDictionary(i => i.Uf, StringComparer.OrdinalIgnoreCase);
         var config = await configTask;
+        var cotacoesPorUf = (await cotacoesTask).ToDictionary(c => c.Uf, StringComparer.OrdinalIgnoreCase);
 
         var resultados = new List<OportunidadeItemResponse>();
         foreach (var origem in origens)
         {
             icmsPorUf.TryGetValue(origem.Uf, out var icms);
+            cotacoesPorUf.TryGetValue(origem.Uf, out var cotacao);
+
             var resultado = _calculoService.CalcularPraca(precoColocado, origem, categoria, icms, config);
+            var cotacaoPracaKg = _calculoService.CalcularCotacaoPracaKg(cotacao, categoria);
+
+            // Deságio/ágio do preço objetivo em relação à cotação local da praça.
+            // Positivo = pagando acima da praça (favorável). Negativo = abaixo (difícil).
+            decimal? desagioPct = cotacaoPracaKg > 0
+                ? (resultado.PrecoPraca / cotacaoPracaKg - 1m) * 100m
+                : null;
+
             resultados.Add(new OportunidadeItemResponse(
                 origem.Id, origem.Nome, origem.Uf, origem.DistanciaKm,
                 resultado.FreteKg, resultado.ValorIcms, resultado.ValorComissao,
-                resultado.PrecoPraca));
+                resultado.PrecoPraca, cotacaoPracaKg, desagioPct));
         }
 
-        return Ok(resultados.OrderByDescending(r => r.PrecoPraca).ToList());
+        // Ranking: melhor oportunidade = maior ágio (positivo) → maior deságio (negativo).
+        // Origens sem cotação cadastrada vão para o final.
+        return Ok(resultados
+            .OrderByDescending(r => r.DesagioPercentual.HasValue)
+            .ThenByDescending(r => r.DesagioPercentual ?? decimal.MinValue)
+            .ToList());
     }
 
     // Modo B (sem ICMS): ranking ordenado pelo menor custo colocado (praça + frete)
