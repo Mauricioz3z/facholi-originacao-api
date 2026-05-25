@@ -10,6 +10,7 @@ public class AuditoriaRepository : BaseRepository
     public async Task Registrar(string tabela, int? registroId, string campo,
         string? valorAnterior, string? valorNovo, int? usuarioId, string usuarioNome, string descricao)
     {
+        
         using var conn = CreateConnection();
         await conn.ExecuteAsync(
             @"INSERT INTO auditoria (tabela, registro_id, campo, valor_anterior, valor_novo,
