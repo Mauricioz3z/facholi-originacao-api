@@ -14,6 +14,7 @@ public class Negociacao
     public int MunicipioDestinoId { get; set; }
     public string MunicipioDestinoNome { get; set; } = string.Empty;
     public DateTime? DataPrevistaEntrega { get; set; }
+    public string? Observacoes { get; set; }
     public string Status { get; set; } = "EmNegociacao"; // EmNegociacao, Fechado
     public DateTime? DataFechamento { get; set; }
     public DateTime CriadoEm { get; set; } = DateTime.Now;

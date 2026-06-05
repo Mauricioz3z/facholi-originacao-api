@@ -98,11 +98,15 @@ CREATE TABLE IF NOT EXISTS negociacoes (
     municipio_origem_id   INTEGER      REFERENCES municipios_origem(id),
     municipio_destino_id  INTEGER      REFERENCES municipios_destino(id),
     data_prevista_entrega DATE         DEFAULT NULL,
+    observacoes           VARCHAR(500) DEFAULT NULL,
     status                VARCHAR(30)  NOT NULL DEFAULT 'EmNegociacao',
     data_fechamento       TIMESTAMP    DEFAULT NULL,
     criado_em             TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em         TIMESTAMP    DEFAULT NULL
 );
+
+-- Migração: adiciona coluna observacoes em bancos já existentes
+ALTER TABLE negociacoes ADD COLUMN IF NOT EXISTS observacoes VARCHAR(500) DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS negociacao_itens (
     id             SERIAL PRIMARY KEY,

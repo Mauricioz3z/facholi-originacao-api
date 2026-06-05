@@ -32,9 +32,9 @@ public class NegociacaoRepository : BaseRepository
 
         var id = await conn.ExecuteScalarAsync<int>(
             @"INSERT INTO negociacoes (numero, comprador_id, corretor_id, municipio_origem_id,
-              municipio_destino_id, data_prevista_entrega, status, criado_em)
+              municipio_destino_id, data_prevista_entrega, observacoes, status, criado_em)
               VALUES (@Numero, @CompradorId, @CorretorId, @MunicipioOrigemId,
-              @MunicipioDestinoId, @DataPrevistaEntrega, @Status, @CriadoEm)
+              @MunicipioDestinoId, @DataPrevistaEntrega, @Observacoes, @Status, @CriadoEm)
               RETURNING id", neg, tx);
 
         foreach (var item in neg.Itens)
@@ -60,7 +60,7 @@ public class NegociacaoRepository : BaseRepository
         await conn.ExecuteAsync(
             @"UPDATE negociacoes SET comprador_id=@CompradorId, corretor_id=@CorretorId,
               municipio_origem_id=@MunicipioOrigemId, municipio_destino_id=@MunicipioDestinoId,
-              data_prevista_entrega=@DataPrevistaEntrega, atualizado_em=@AtualizadoEm
+              data_prevista_entrega=@DataPrevistaEntrega, observacoes=@Observacoes, atualizado_em=@AtualizadoEm
               WHERE id=@Id", neg, tx);
 
         await conn.ExecuteAsync("DELETE FROM negociacao_itens WHERE negociacao_id=@Id", new { neg.Id }, tx);

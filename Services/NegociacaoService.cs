@@ -40,6 +40,7 @@ public class NegociacaoService
             MunicipioOrigemId = request.MunicipioOrigemId,
             MunicipioDestinoId = request.MunicipioDestinoId,
             DataPrevistaEntrega = request.DataPrevistaEntrega,
+            Observacoes = TruncarObservacoes(request.Observacoes),
             Status = "EmNegociacao",
             CriadoEm = DateTime.Now
         };
@@ -87,6 +88,7 @@ public class NegociacaoService
         negExistente.MunicipioOrigemId = request.MunicipioOrigemId;
         negExistente.MunicipioDestinoId = request.MunicipioDestinoId;
         negExistente.DataPrevistaEntrega = request.DataPrevistaEntrega;
+        negExistente.Observacoes = TruncarObservacoes(request.Observacoes);
         negExistente.AtualizadoEm = DateTime.Now;
         negExistente.Itens = await CalcularItens(request.Itens, municipioOrigem);
 
@@ -190,6 +192,13 @@ public class NegociacaoService
 
         await _auditoriaRepo.Registrar("negociacoes", request.NegociacaoId, "entrega", null, null,
             usuarioId, usuarioNome, $"Entrega atualizada para negociação {neg.Numero}");
+    }
+
+    private static string? TruncarObservacoes(string? obs)
+    {
+        if (string.IsNullOrWhiteSpace(obs)) return null;
+        obs = obs.Trim();
+        return obs.Length > 500 ? obs[..500] : obs;
     }
 
     private async Task<List<NegociacaoItem>> CalcularItens(List<NegociacaoItemRequest> itensReq, MunicipioOrigem municipioOrigem)

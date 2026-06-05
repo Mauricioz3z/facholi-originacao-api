@@ -6,6 +6,7 @@ public record NegociacaoRequest(
     int MunicipioOrigemId,
     int MunicipioDestinoId,
     DateTime? DataPrevistaEntrega,
+    string? Observacoes,
     List<NegociacaoItemRequest> Itens
 );
 
