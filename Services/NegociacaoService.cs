@@ -28,6 +28,8 @@ public class NegociacaoService
 
     public async Task<Negociacao> Criar(NegociacaoRequest request, int usuarioId, string usuarioNome)
     {
+        ValidarQuantidades(request.Itens);
+
         var numero = await _negRepo.GerarNumero();
         var municipioOrigem = await _munOrigemRepo.ObterPorId(request.MunicipioOrigemId)
             ?? throw new Exception("Município de origem não encontrado");
@@ -57,6 +59,8 @@ public class NegociacaoService
 
     public async Task<Negociacao> Atualizar(int id, NegociacaoRequest request, int usuarioId, string usuarioNome, string usuarioPerfil)
     {
+        ValidarQuantidades(request.Itens);
+
         var negExistente = await _negRepo.ObterPorId(id)
             ?? throw new Exception("Negociação não encontrada");
 
@@ -192,6 +196,15 @@ public class NegociacaoService
 
         await _auditoriaRepo.Registrar("negociacoes", request.NegociacaoId, "entrega", null, null,
             usuarioId, usuarioNome, $"Entrega atualizada para negociação {neg.Numero}");
+    }
+
+    // Impede salvar negociação sem animais: pelo menos uma categoria
+    // precisa ter quantidade de cabeças preenchida e maior que zero.
+    private static void ValidarQuantidades(List<NegociacaoItemRequest> itens)
+    {
+        var temAnimais = itens?.Any(i => i.QtdNegociada.HasValue && i.QtdNegociada.Value > 0) ?? false;
+        if (!temAnimais)
+            throw new Exception("Informe a quantidade de cabeças em pelo menos uma categoria. Não é possível salvar uma negociação com zero animais.");
     }
 
     private static string? TruncarObservacoes(string? obs)
