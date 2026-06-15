@@ -3,13 +3,24 @@ using Microsoft.AspNetCore.Mvc;
 using PrecoBoi.Api.DTOs;
 using PrecoBoi.Api.Models;
 using PrecoBoi.Api.Repositories;
+using Swashbuckle.AspNetCore.Annotations;
 using System.Security.Claims;
 
 namespace PrecoBoi.Api.Controllers;
 
+/// <summary>
+/// Cadastros de apoio: corretores, municípios (origem/destino), categorias,
+/// ICMS por UF, cotações regionais, configuração de comissão e auditoria.
+/// </summary>
+/// <remarks>
+/// Leitura disponível a qualquer usuário autenticado. As operações de escrita
+/// (criar/editar/excluir) exigem perfil <b>Admin</b> e geram registros de auditoria.
+/// </remarks>
 [ApiController]
 [Route("api")]
 [Authorize]
+[Produces("application/json")]
+[SwaggerTag("Cadastros de apoio, parâmetros de cálculo e auditoria")]
 public class CadastrosController : ControllerBase
 {
     private readonly CorretorRepository _corretorRepo;
@@ -38,19 +49,36 @@ public class CadastrosController : ControllerBase
     }
 
     // === CORRETORES ===
+
+    /// <summary>Lista os corretores.</summary>
+    /// <param name="ativo">Filtro opcional por status (ativo/inativo); omitido = todos.</param>
+    /// <response code="200">Lista de corretores.</response>
     [HttpGet("corretores")]
+    [ProducesResponseType(typeof(IEnumerable<Corretor>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListarCorretores([FromQuery] bool? ativo)
         => Ok(await _corretorRepo.Listar(ativo));
 
+    /// <summary>Obtém um corretor pelo identificador.</summary>
+    /// <param name="id">Identificador do corretor.</param>
+    /// <response code="200">Corretor encontrado.</response>
+    /// <response code="404">Corretor não encontrado.</response>
     [HttpGet("corretores/{id}")]
+    [ProducesResponseType(typeof(Corretor), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObterCorretor(int id)
     {
         var c = await _corretorRepo.ObterPorId(id);
         return c == null ? NotFound() : Ok(c);
     }
 
+    /// <summary>Cria um corretor. <b>Requer perfil Admin.</b></summary>
+    /// <param name="req">Dados do corretor.</param>
+    /// <response code="201">Corretor criado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPost("corretores")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(Corretor), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CriarCorretor([FromBody] CorretorRequest req)
     {
         var corretor = new Corretor { Nome = req.Nome, Telefone = req.Telefone, Municipio = req.Municipio, Uf = req.Uf, Propriedade = req.Propriedade, Observacoes = req.Observacoes, Ativo = req.Ativo };
@@ -60,8 +88,15 @@ public class CadastrosController : ControllerBase
         return CreatedAtAction(nameof(ObterCorretor), new { id }, corretor);
     }
 
+    /// <summary>Atualiza um corretor. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador do corretor.</param>
+    /// <param name="req">Novos dados do corretor.</param>
+    /// <response code="204">Corretor atualizado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPut("corretores/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AtualizarCorretor(int id, [FromBody] CorretorRequest req)
     {
         var corretor = new Corretor { Id = id, Nome = req.Nome, Telefone = req.Telefone, Municipio = req.Municipio, Uf = req.Uf, Propriedade = req.Propriedade, Observacoes = req.Observacoes, Ativo = req.Ativo };
@@ -70,24 +105,47 @@ public class CadastrosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Exclui um corretor. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador do corretor.</param>
+    /// <response code="204">Corretor excluído.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpDelete("corretores/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ExcluirCorretor(int id) { await _corretorRepo.Excluir(id); return NoContent(); }
 
     // === MUNICÍPIOS DE ORIGEM ===
+
+    /// <summary>Lista os municípios de origem (com distância e valor por km).</summary>
+    /// <param name="ativo">Filtro opcional por status; omitido = todos.</param>
+    /// <response code="200">Lista de municípios de origem.</response>
     [HttpGet("municipios-origem")]
+    [ProducesResponseType(typeof(IEnumerable<MunicipioOrigem>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListarMunicipiosOrigem([FromQuery] bool? ativo)
         => Ok(await _munOrigemRepo.Listar(ativo));
 
+    /// <summary>Obtém um município de origem pelo identificador.</summary>
+    /// <param name="id">Identificador do município.</param>
+    /// <response code="200">Município encontrado.</response>
+    /// <response code="404">Município não encontrado.</response>
     [HttpGet("municipios-origem/{id}")]
+    [ProducesResponseType(typeof(MunicipioOrigem), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObterMunicipioOrigem(int id)
     {
         var m = await _munOrigemRepo.ObterPorId(id);
         return m == null ? NotFound() : Ok(m);
     }
 
+    /// <summary>Cria um município de origem. <b>Requer perfil Admin.</b></summary>
+    /// <param name="req">Dados do município (a UF é normalizada para maiúsculas).</param>
+    /// <response code="201">Município criado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPost("municipios-origem")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(MunicipioOrigem), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CriarMunicipioOrigem([FromBody] MunicipioOrigemRequest req)
     {
         var m = new MunicipioOrigem { Nome = req.Nome, Uf = req.Uf.ToUpper(), DistanciaKm = req.DistanciaKm, ValorKm = req.ValorKm, Ativo = req.Ativo };
@@ -97,8 +155,16 @@ public class CadastrosController : ControllerBase
         return CreatedAtAction(nameof(ObterMunicipioOrigem), new { id }, m);
     }
 
+    /// <summary>Atualiza um município de origem. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>Alterações no valor por km são registradas em auditoria.</remarks>
+    /// <param name="id">Identificador do município.</param>
+    /// <param name="req">Novos dados do município.</param>
+    /// <response code="204">Município atualizado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPut("municipios-origem/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AtualizarMunicipioOrigem(int id, [FromBody] MunicipioOrigemRequest req)
     {
         var anterior = await _munOrigemRepo.ObterPorId(id);
@@ -111,19 +177,38 @@ public class CadastrosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Exclui um município de origem. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador do município.</param>
+    /// <response code="204">Município excluído.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpDelete("municipios-origem/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ExcluirMunicipioOrigem(int id) { await _munOrigemRepo.Excluir(id); return NoContent(); }
 
     // === MUNICÍPIOS DE DESTINO ===
+
+    /// <summary>Lista os municípios de destino (praças de abate/comercialização).</summary>
+    /// <response code="200">Lista de municípios de destino.</response>
     [HttpGet("municipios-destino")]
+    [ProducesResponseType(typeof(IEnumerable<MunicipioDestino>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListarMunicipiosDestino() => Ok(await _munDestinoRepo.Listar());
 
+    /// <summary>Obtém o município de destino marcado como padrão.</summary>
+    /// <response code="200">Município de destino padrão (ou vazio se não houver).</response>
     [HttpGet("municipios-destino/padrao")]
+    [ProducesResponseType(typeof(MunicipioDestino), StatusCodes.Status200OK)]
     public async Task<IActionResult> ObterDestinopadrao() => Ok(await _munDestinoRepo.ObterPadrao());
 
+    /// <summary>Cria um município de destino. <b>Requer perfil Admin.</b></summary>
+    /// <param name="req">Dados do município de destino.</param>
+    /// <response code="200">Município criado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPost("municipios-destino")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(MunicipioDestino), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CriarMunicipioDestino([FromBody] MunicipioDestinoRequest req)
     {
         var m = new MunicipioDestino { Nome = req.Nome, Uf = req.Uf.ToUpper(), Padrao = req.Padrao };
@@ -132,8 +217,15 @@ public class CadastrosController : ControllerBase
         return Ok(m);
     }
 
+    /// <summary>Atualiza um município de destino. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador do município.</param>
+    /// <param name="req">Novos dados do município.</param>
+    /// <response code="204">Município atualizado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPut("municipios-destino/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AtualizarMunicipioDestino(int id, [FromBody] MunicipioDestinoRequest req)
     {
         var m = new MunicipioDestino { Id = id, Nome = req.Nome, Uf = req.Uf.ToUpper(), Padrao = req.Padrao };
@@ -141,16 +233,33 @@ public class CadastrosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Exclui um município de destino. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador do município.</param>
+    /// <response code="204">Município excluído.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpDelete("municipios-destino/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ExcluirMunicipioDestino(int id) { await _munDestinoRepo.Excluir(id); return NoContent(); }
 
     // === CATEGORIAS ===
+
+    /// <summary>Lista as categorias de gado (faixas de peso) e seus parâmetros.</summary>
+    /// <response code="200">Lista de categorias.</response>
     [HttpGet("categorias")]
+    [ProducesResponseType(typeof(IEnumerable<Categoria>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListarCategorias() => Ok(await _catRepo.Listar());
 
+    /// <summary>Atualiza uma categoria. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador da categoria.</param>
+    /// <param name="req">Novos dados da categoria.</param>
+    /// <response code="204">Categoria atualizada.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPut("categorias/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AtualizarCategoria(int id, [FromBody] CategoriaRequest req)
     {
         var cat = new Categoria { Id = id, Nome = req.Nome, PesoMin = req.PesoMin, PesoMax = req.PesoMax, PesoMedio = req.PesoMedio, CabCaminhao = req.CabCaminhao, Ordem = req.Ordem };
@@ -158,8 +267,17 @@ public class CadastrosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Cria uma categoria. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>Valida a faixa de peso (mín &lt; máx), o peso médio dentro da faixa e cabeças por caminhão &gt; 0.</remarks>
+    /// <param name="req">Dados da categoria, incluindo ágio padrão opcional.</param>
+    /// <response code="201">Categoria criada.</response>
+    /// <response code="400">Faixa de peso ou parâmetros inválidos.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPost("categorias")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(Categoria), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CriarCategoria([FromBody] CategoriaRequest req)
     {
         if (req.PesoMin < 0 || req.PesoMax <= req.PesoMin)
@@ -183,8 +301,17 @@ public class CadastrosController : ControllerBase
         return CreatedAtAction(nameof(ListarCategorias), new { id }, cat);
     }
 
+    /// <summary>Exclui uma categoria. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>Bloqueada quando a categoria está em uso em itens de negociação.</remarks>
+    /// <param name="id">Identificador da categoria.</param>
+    /// <response code="204">Categoria excluída.</response>
+    /// <response code="400">Categoria em uso em negociações.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpDelete("categorias/{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ExcluirCategoria(int id)
     {
         var uso = await _catRepo.ContarUsoEmNegociacoes(id);
@@ -196,11 +323,23 @@ public class CadastrosController : ControllerBase
     }
 
     // === ICMS ===
+
+    /// <summary>Lista as alíquotas de ICMS e recuperação por UF.</summary>
+    /// <response code="200">Lista de ICMS por UF.</response>
     [HttpGet("icms")]
+    [ProducesResponseType(typeof(IEnumerable<Icms>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListarIcms() => Ok(await _icmsRepo.Listar());
 
+    /// <summary>Atualiza o ICMS de uma UF. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>Mudanças de alíquota são registradas em auditoria.</remarks>
+    /// <param name="uf">Sigla da UF (ex.: <c>SP</c>).</param>
+    /// <param name="req">Alíquota e percentual de recuperação.</param>
+    /// <response code="204">ICMS atualizado.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPut("icms/{uf}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AtualizarIcms(string uf, [FromBody] IcmsRequest req)
     {
         var anterior = await _icmsRepo.ObterPorUf(uf);
@@ -214,18 +353,35 @@ public class CadastrosController : ControllerBase
     }
 
     // === COTAÇÃO REGIONAL ===
+
+    /// <summary>Lista as cotações regionais (valor da arroba por UF) com ágios por categoria.</summary>
+    /// <response code="200">Lista de cotações regionais.</response>
     [HttpGet("cotacoes")]
+    [ProducesResponseType(typeof(IEnumerable<CotacaoRegional>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListarCotacoes() => Ok(await _cotacaoRepo.Listar());
 
+    /// <summary>Obtém a cotação regional de uma UF.</summary>
+    /// <param name="uf">Sigla da UF (ex.: <c>SP</c>).</param>
+    /// <response code="200">Cotação encontrada.</response>
+    /// <response code="404">Não há cotação cadastrada para a UF.</response>
     [HttpGet("cotacoes/{uf}")]
+    [ProducesResponseType(typeof(CotacaoRegional), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObterCotacao(string uf)
     {
         var c = await _cotacaoRepo.ObterPorUf(uf);
         return c == null ? NotFound() : Ok(c);
     }
 
+    /// <summary>Cria ou atualiza (upsert) a cotação regional de uma UF. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>Mudanças no valor da arroba são registradas em auditoria.</remarks>
+    /// <param name="req">Cotação (valor da arroba e ágios por categoria).</param>
+    /// <response code="200">Cotação salva.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPost("cotacoes")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> SalvarCotacao([FromBody] CotacaoRegionalRequest req)
     {
         var anterior = await _cotacaoRepo.ObterPorUf(req.Uf);
@@ -245,11 +401,22 @@ public class CadastrosController : ControllerBase
     }
 
     // === CONFIG COMISSÃO ===
+
+    /// <summary>Obtém a configuração de comissão vigente.</summary>
+    /// <response code="200">Configuração de comissão (percentual e status).</response>
     [HttpGet("config-comissao")]
+    [ProducesResponseType(typeof(ConfigComissao), StatusCodes.Status200OK)]
     public async Task<IActionResult> ObterConfigComissao() => Ok(await _configRepo.Obter());
 
+    /// <summary>Salva a configuração de comissão. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>Mudanças no percentual são registradas em auditoria.</remarks>
+    /// <param name="req">Percentual de comissão e status.</param>
+    /// <response code="200">Configuração salva.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpPost("config-comissao")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> SalvarConfigComissao([FromBody] ConfigComissaoRequest req)
     {
         var anterior = await _configRepo.Obter();
@@ -263,8 +430,15 @@ public class CadastrosController : ControllerBase
     }
 
     // === AUDITORIA ===
+
+    /// <summary>Lista o trilho de auditoria de forma paginada. <b>Requer perfil Admin.</b></summary>
+    /// <param name="filtro">Filtros (tabela, usuário, intervalo de datas) e paginação.</param>
+    /// <response code="200">Página de registros de auditoria com o total.</response>
+    /// <response code="403">Usuário sem perfil Admin.</response>
     [HttpGet("auditoria")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ListarAuditoria([FromQuery] AuditoriaFiltroRequest filtro)
     {
         var (items, total) = await _auditoriaRepo.Listar(filtro.Tabela, filtro.UsuarioId,

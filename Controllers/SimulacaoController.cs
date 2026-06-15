@@ -3,12 +3,21 @@ using Microsoft.AspNetCore.Mvc;
 using PrecoBoi.Api.DTOs;
 using PrecoBoi.Api.Repositories;
 using PrecoBoi.Api.Services;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace PrecoBoi.Api.Controllers;
 
+/// <summary>Simulação de preços de praça e ranking de oportunidades de compra.</summary>
+/// <remarks>
+/// Calcula o preço de praça a partir do preço colocado, descontando frete, ICMS e comissão,
+/// e ordena origens por atratividade (ágio/deságio ou menor custo colocado).
+/// Arroba (@) = 30 kg. Valores em R$/kg salvo indicação contrária.
+/// </remarks>
 [ApiController]
 [Route("api/simulacao")]
 [Authorize]
+[Produces("application/json")]
+[SwaggerTag("Cálculo de preço de praça e oportunidades de originação")]
 public class SimulacaoController : ControllerBase
 {
     private readonly CalculoService _calculoService;
@@ -37,7 +46,13 @@ public class SimulacaoController : ControllerBase
         _cotacaoRepo = cotacaoRepo;
     }
 
+    /// <summary>Calcula o preço de praça para as categorias informadas em uma rota origem→destino.</summary>
+    /// <param name="request">Município de origem, destino e itens (categoria + preço colocado em R$/kg).</param>
+    /// <response code="200">Resultado da simulação por item.</response>
+    /// <response code="400">Município de origem ou destino não encontrado.</response>
     [HttpPost]
+    [ProducesResponseType(typeof(SimulacaoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Calcular([FromBody] SimulacaoRequest request)
     {
         var municipioOrigem = await _munOrigemRepo.ObterPorId(request.MunicipioOrigemId);
@@ -65,7 +80,18 @@ public class SimulacaoController : ControllerBase
             municipioDestino.Id, municipioDestino.Nome, itensResponse));
     }
 
+    /// <summary>Ranking de oportunidades (Modo A — com ICMS) para uma categoria e preço colocado.</summary>
+    /// <remarks>
+    /// Ordena as origens ativas pelo maior ágio (deságio positivo) frente à cotação crua da praça.
+    /// Origens sem cotação cadastrada vão para o final do ranking.
+    /// </remarks>
+    /// <param name="categoriaId">Identificador da categoria.</param>
+    /// <param name="precoColocado">Preço colocado de referência em R$/kg (deve ser maior que zero).</param>
+    /// <response code="200">Lista de oportunidades ordenadas por atratividade.</response>
+    /// <response code="400">Categoria não encontrada ou preço colocado inválido.</response>
     [HttpGet("oportunidades")]
+    [ProducesResponseType(typeof(IEnumerable<OportunidadeItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Oportunidades([FromQuery] int categoriaId, [FromQuery] decimal precoColocado)
     {
         var categoria = await _catRepo.ObterPorId(categoriaId);
@@ -118,8 +144,17 @@ public class SimulacaoController : ControllerBase
             .ToList());
     }
 
-    // Modo B (sem ICMS): ranking ordenado pelo menor custo colocado (praça + frete)
+    /// <summary>Ranking de oportunidades (Modo B — sem ICMS) ordenado pelo menor custo colocado.</summary>
+    /// <remarks>
+    /// Custo colocado = cotação da praça (R$/kg) + frete. Origens cuja UF não possui cotação
+    /// ativa (valor de arroba ≤ 0) são ignoradas para não distorcer o ranking.
+    /// </remarks>
+    /// <param name="categoriaId">Identificador da categoria.</param>
+    /// <response code="200">Lista ordenada pelo menor custo colocado.</response>
+    /// <response code="400">Categoria não encontrada.</response>
     [HttpGet("oportunidades-praca")]
+    [ProducesResponseType(typeof(IEnumerable<OportunidadePracaItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> OportunidadesPorPraca([FromQuery] int categoriaId)
     {
         var categoria = await _catRepo.ObterPorId(categoriaId);
@@ -152,8 +187,14 @@ public class SimulacaoController : ControllerBase
         return Ok(resultados.OrderBy(r => r.CustoColocadoKg).ToList());
     }
 
-    // Retorna simulação completa para todas as categorias dado origem/destino
+    /// <summary>Simulação rápida do frete por kg para todas as categorias em uma rota.</summary>
+    /// <param name="origemId">Identificador do município de origem.</param>
+    /// <param name="destinoId">Identificador do município de destino.</param>
+    /// <response code="200">Frete por categoria para a rota informada.</response>
+    /// <response code="400">Município de origem ou destino não encontrado.</response>
     [HttpGet("rapida")]
+    [ProducesResponseType(typeof(SimulacaoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SimulacaoRapida([FromQuery] int origemId, [FromQuery] int destinoId)
     {
         var municipioOrigem = await _munOrigemRepo.ObterPorId(origemId);

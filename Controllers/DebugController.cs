@@ -2,11 +2,15 @@ using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace PrecoBoi.Api.Controllers;
 
+/// <summary>Endpoints de diagnóstico/infraestrutura.</summary>
 [ApiController]
 [Route("api/debug")]
+[Produces("application/json")]
+[SwaggerTag("Diagnóstico — uso interno")]
 public class DebugController : ControllerBase
 {
     private readonly IConfiguration _config;
@@ -16,8 +20,12 @@ public class DebugController : ControllerBase
         _config = config;
     }
 
+    /// <summary>Compara o fuso horário e o horário atual do servidor (.NET) e do PostgreSQL.</summary>
+    /// <remarks>Endpoint <b>público</b>, útil para diagnosticar divergências de fuso horário.</remarks>
+    /// <response code="200">Informações de data/hora e fuso do .NET e do banco.</response>
     [HttpGet("tz")]
     [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Tz()
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;

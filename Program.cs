@@ -2,6 +2,7 @@ using System.Text;
 using Dapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using PrecoBoi.Api.Configuration;
 using PrecoBoi.Api.Repositories;
 using PrecoBoi.Api.Services;
 
@@ -12,6 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddControllers();
+
+// Documentação técnica OpenAPI / Swagger
+builder.Services.AddSwaggerDocumentation();
 
 // Repositories
 builder.Services.AddScoped<UsuarioRepository>();
@@ -64,6 +68,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Swagger disponível em todos os ambientes (documentação técnica da API)
+app.UseSwaggerDocumentation();
 
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();

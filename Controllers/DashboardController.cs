@@ -4,12 +4,21 @@ using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using PrecoBoi.Api.DTOs;
 using PrecoBoi.Api.Repositories;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace PrecoBoi.Api.Controllers;
 
+/// <summary>Indicadores analíticos agregados das negociações.</summary>
+/// <remarks>
+/// Consolida volumes e preços médios (ponderados por peso) por comprador, corretor e categoria.
+/// Todos os endpoints aceitam os mesmos filtros opcionais via query string
+/// (comprador, corretor, UF, status). Preços médios são ponderados por <c>qtd × peso médio</c>.
+/// </remarks>
 [ApiController]
 [Route("api/dashboard")]
 [Authorize]
+[Produces("application/json")]
+[SwaggerTag("Indicadores e relatórios analíticos")]
 public class DashboardController : ControllerBase
 {
     private readonly NegociacaoRepository _negRepo;
@@ -21,7 +30,11 @@ public class DashboardController : ControllerBase
         _config = config;
     }
 
+    /// <summary>Totais e preços médios agregados por comprador.</summary>
+    /// <param name="filtro">Filtros opcionais e paginação.</param>
+    /// <response code="200">Indicadores por comprador.</response>
     [HttpGet("compradores")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PorComprador([FromQuery] NegociacaoFiltroRequest filtro)
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;
@@ -59,7 +72,12 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Lista as negociações de um comprador específico.</summary>
+    /// <param name="compradorId">Identificador do comprador.</param>
+    /// <param name="filtro">Filtros adicionais e paginação.</param>
+    /// <response code="200">Negociações do comprador com total.</response>
     [HttpGet("compradores/{compradorId}/negociacoes")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> NegociacoesPorComprador(int compradorId, [FromQuery] NegociacaoFiltroRequest filtro)
     {
         filtro = filtro with { CompradorId = compradorId };
@@ -67,7 +85,12 @@ public class DashboardController : ControllerBase
         return Ok(new { items, total });
     }
 
+    /// <summary>Distribuição por corretor e categoria das negociações de um comprador.</summary>
+    /// <param name="compradorId">Identificador do comprador.</param>
+    /// <param name="filtro">Filtros adicionais.</param>
+    /// <response code="200">Quantidades (em andamento/fechadas) e preços médios por corretor e categoria.</response>
     [HttpGet("compradores/{compradorId}/categorias-corretor")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> CategoriasPorComprador(int compradorId, [FromQuery] NegociacaoFiltroRequest filtro)
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;
@@ -108,7 +131,11 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Totais e preços médios agregados por corretor e categoria.</summary>
+    /// <param name="filtro">Filtros opcionais.</param>
+    /// <response code="200">Indicadores por corretor e categoria.</response>
     [HttpGet("corretores")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PorCorretor([FromQuery] NegociacaoFiltroRequest filtro)
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;
@@ -150,7 +177,11 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Totais consolidados (quantidade e preços médios) de toda a base filtrada.</summary>
+    /// <param name="filtro">Filtros opcionais.</param>
+    /// <response code="200">Objeto único com os totais agregados.</response>
     [HttpGet("totais")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Totais([FromQuery] NegociacaoFiltroRequest filtro)
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;
@@ -182,7 +213,11 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Totais e preços médios agregados por categoria.</summary>
+    /// <param name="filtro">Filtros opcionais.</param>
+    /// <response code="200">Indicadores por categoria, ordenados pela ordem da categoria.</response>
     [HttpGet("por-categoria")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> PorCategoria([FromQuery] NegociacaoFiltroRequest filtro)
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;
@@ -221,7 +256,12 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Detalha uma categoria por comprador e corretor.</summary>
+    /// <param name="categoriaId">Identificador da categoria.</param>
+    /// <param name="filtro">Filtros opcionais.</param>
+    /// <response code="200">Quebra por comprador/corretor da categoria.</response>
     [HttpGet("por-categoria/{categoriaId}/detalhe")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> DetalhePorCategoria(int categoriaId, [FromQuery] NegociacaoFiltroRequest filtro)
     {
         var connStr = _config.GetConnectionString("DefaultConnection")!;
@@ -261,7 +301,14 @@ public class DashboardController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Resumo de cabeças em andamento e fechadas, por categoria e total geral.</summary>
+    /// <param name="mock">
+    /// Quando informado (1 a 4), retorna dados sintéticos de magnitudes crescentes para
+    /// testar a renderização do front sem consultar o banco. Omitir em produção.
+    /// </param>
+    /// <response code="200">Totais de cabeças (andamento/fechadas) e quebra por categoria.</response>
     [HttpGet("resumo-cabecas")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ResumoCabecas([FromQuery] int? mock = null)
     {
         // === Modo MOCK para testes de UI (não consulta o banco) ===
