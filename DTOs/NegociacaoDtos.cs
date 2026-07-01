@@ -30,6 +30,8 @@ public record NegociacaoFiltroRequest(
     string? Uf,
     string? CidadeOrigem,
     string? Status,
+    int? Ano,
+    int? Mes,
     int Pagina = 1,
     int TamanhoPagina = 20
 );

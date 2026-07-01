@@ -131,6 +131,8 @@ public class NegociacaoRepository : BaseRepository
         if (!string.IsNullOrEmpty(filtro.Uf)) { where.Add("mo.uf=@Uf"); parameters.Add("Uf", filtro.Uf.ToUpper()); }
         if (!string.IsNullOrEmpty(filtro.CidadeOrigem)) { where.Add("LOWER(mo.nome) LIKE @Cidade"); parameters.Add("Cidade", $"%{filtro.CidadeOrigem.ToLower()}%"); }
         if (!string.IsNullOrEmpty(filtro.Status) && filtro.Status != "Todos") { where.Add("n.status=@Status"); parameters.Add("Status", filtro.Status); }
+        if (filtro.Ano.HasValue) { where.Add("EXTRACT(YEAR FROM n.criado_em)=@Ano"); parameters.Add("Ano", filtro.Ano); }
+        if (filtro.Mes.HasValue) { where.Add("EXTRACT(MONTH FROM n.criado_em)=@Mes"); parameters.Add("Mes", filtro.Mes); }
 
         var whereClause = where.Count > 0 ? "WHERE " + string.Join(" AND ", where) : "";
         var offset = (filtro.Pagina - 1) * filtro.TamanhoPagina;

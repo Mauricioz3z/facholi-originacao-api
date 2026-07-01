@@ -262,7 +262,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("resumo-cabecas")]
-    public async Task<IActionResult> ResumoCabecas([FromQuery] int? mock = null)
+    public async Task<IActionResult> ResumoCabecas([FromQuery] NegociacaoFiltroRequest filtro, [FromQuery] int? mock = null)
     {
         // === Modo MOCK para testes de UI (não consulta o banco) ===
         // Uso: GET /api/dashboard/resumo-cabecas?mock=1 (ou 2, 3, 4)
@@ -271,7 +271,10 @@ public class DashboardController : ControllerBase
         var connStr = _config.GetConnectionString("DefaultConnection")!;
         using var conn = new NpgsqlConnection(connStr);
 
-        var sql = @"
+        var where = BuildWhere(filtro, out var parameters);
+        var andQtd = where.Length > 0 ? "AND ni.qtd_negociada IS NOT NULL" : "WHERE ni.qtd_negociada IS NOT NULL";
+
+        var sql = $@"
             SELECT
                 cat.nome      AS categoria,
                 cat.ordem,
@@ -282,11 +285,12 @@ public class DashboardController : ControllerBase
             FROM negociacao_itens ni
             JOIN negociacoes n  ON n.id  = ni.negociacao_id
             JOIN categorias cat ON cat.id = ni.categoria_id
-            WHERE ni.qtd_negociada IS NOT NULL
+            LEFT JOIN municipios_origem mo ON mo.id = n.municipio_origem_id
+            {where} {andQtd}
             GROUP BY cat.id, cat.nome, cat.ordem, cat.peso_min, cat.peso_max
             ORDER BY cat.ordem";
 
-        var porCategoria = (await conn.QueryAsync(sql)).ToList();
+        var porCategoria = (await conn.QueryAsync(sql, parameters)).ToList();
 
         long totalAndamento = 0;
         long totalFechadas  = 0;
@@ -296,12 +300,14 @@ public class DashboardController : ControllerBase
             totalFechadas  += Convert.ToInt64(r.cb_fechadas);
         }
 
-        var contagemSql = @"
+        var contagemSql = $@"
             SELECT
-                COALESCE(SUM(CASE WHEN status = 'EmNegociacao' THEN 1 ELSE 0 END), 0) AS neg_andamento,
-                COALESCE(SUM(CASE WHEN status = 'Fechado'      THEN 1 ELSE 0 END), 0) AS neg_fechadas
-            FROM negociacoes";
-        var contagem = await conn.QueryFirstAsync(contagemSql);
+                COALESCE(SUM(CASE WHEN n.status = 'EmNegociacao' THEN 1 ELSE 0 END), 0) AS neg_andamento,
+                COALESCE(SUM(CASE WHEN n.status = 'Fechado'      THEN 1 ELSE 0 END), 0) AS neg_fechadas
+            FROM negociacoes n
+            LEFT JOIN municipios_origem mo ON mo.id = n.municipio_origem_id
+            {where}";
+        var contagem = await conn.QueryFirstAsync(contagemSql, parameters);
         long negociacoesAndamento = Convert.ToInt64(contagem.neg_andamento);
         long negociacoesFechadas  = Convert.ToInt64(contagem.neg_fechadas);
 
@@ -368,6 +374,22 @@ public class DashboardController : ControllerBase
         };
     }
 
+    [HttpGet("anos")]
+    public async Task<IActionResult> Anos()
+    {
+        var connStr = _config.GetConnectionString("DefaultConnection")!;
+        using var conn = new NpgsqlConnection(connStr);
+
+        var sql = @"
+            SELECT DISTINCT EXTRACT(YEAR FROM criado_em)::int AS ano
+            FROM negociacoes
+            WHERE criado_em IS NOT NULL
+            ORDER BY ano DESC";
+
+        var anos = await conn.QueryAsync<int>(sql);
+        return Ok(anos);
+    }
+
     private string BuildWhere(NegociacaoFiltroRequest filtro, out DynamicParameters parameters)
     {
         var where = new List<string>();
@@ -377,6 +399,8 @@ public class DashboardController : ControllerBase
         if (filtro.CorretorId.HasValue) { where.Add("n.corretor_id=@CorretorId"); parameters.Add("CorretorId", filtro.CorretorId); }
         if (!string.IsNullOrEmpty(filtro.Uf)) { where.Add("mo.uf=@Uf"); parameters.Add("Uf", filtro.Uf.ToUpper()); }
         if (!string.IsNullOrEmpty(filtro.Status) && filtro.Status != "Todos") { where.Add("n.status=@Status"); parameters.Add("Status", filtro.Status); }
+        if (filtro.Ano.HasValue) { where.Add("EXTRACT(YEAR FROM n.criado_em)=@Ano"); parameters.Add("Ano", filtro.Ano); }
+        if (filtro.Mes.HasValue) { where.Add("EXTRACT(MONTH FROM n.criado_em)=@Mes"); parameters.Add("Mes", filtro.Mes); }
 
         return where.Count > 0 ? "WHERE " + string.Join(" AND ", where) : "";
     }
