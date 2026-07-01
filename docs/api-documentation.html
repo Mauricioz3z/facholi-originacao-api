@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Documentação Técnica — API de Originação · Facholi</title>
+<style>
+  :root{
+    --green-900:#0E3A1B;
+    --green-800:#134A22;
+    --green-700:#195C27;
+    --green-600:#1E6B30;
+    --green-500:#23813C;
+    --green-400:#2E8B4F;
+    --leaf:#7AC143;
+    --ink:#1c2620;
+    --muted:#5c6b62;
+    --line:#dfe6e0;
+    --bg-soft:#f4f7f4;
+    --bg-card:#ffffff;
+    --get:#1e7d46;
+    --post:#1f6fb2;
+    --put:#b9821a;
+    --del:#b23b3b;
+  }
+
+  @page{
+    size:A4;
+    margin:20mm 15mm 18mm 15mm;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    font-size:10.5pt;
+    line-height:1.55;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  /* ===== Running header / footer (repeated on every page) ===== */
+  .run-header{
+    position:fixed; top:-15mm; left:0; right:0; height:11mm;
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:7.5pt; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--green-700); font-weight:700;
+    border-bottom:1.5px solid var(--leaf);
+    padding-bottom:2mm;
+  }
+  .run-header .rh-right{color:var(--muted); font-weight:600;}
+  .run-footer{
+    position:fixed; bottom:-13mm; left:0; right:0; height:9mm;
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:7.5pt; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:2mm;
+  }
+  .run-footer .ico-leaf{color:var(--green-500);font-weight:800;}
+
+  /* ===== Cover (full bleed, hides header/footer) ===== */
+  .cover{
+    position:relative; z-index:50;
+    width:210mm; height:297mm;
+    margin:-20mm -15mm 0 -15mm;
+    background:linear-gradient(160deg,var(--green-600) 0%,var(--green-800) 55%,var(--green-900) 100%);
+    color:#fff; overflow:hidden;
+    padding:34mm 24mm;
+    display:flex; flex-direction:column;
+  }
+  .cover::before{
+    content:""; position:absolute; right:-60mm; top:-40mm;
+    width:160mm; height:160mm; border-radius:50%;
+    background:rgba(255,255,255,.05);
+  }
+  .cover::after{
+    content:""; position:absolute; left:-50mm; bottom:-70mm;
+    width:150mm; height:150mm; border-radius:50%;
+    background:rgba(122,193,67,.10);
+  }
+  .cover-logo{height:17mm; margin-bottom:4mm; position:relative; z-index:2;}
+  .cover-kicker{
+    position:relative; z-index:2;
+    font-size:9pt; letter-spacing:.32em; text-transform:uppercase;
+    color:var(--leaf); font-weight:700; margin-top:40mm;
+  }
+  .cover-title{
+    position:relative; z-index:2;
+    font-size:40pt; line-height:1.05; font-weight:800; margin:6mm 0 0;
+    letter-spacing:-.5px;
+  }
+  .cover-sub{
+    position:relative; z-index:2;
+    font-size:14pt; font-weight:400; color:rgba(255,255,255,.85);
+    margin-top:5mm; max-width:130mm;
+  }
+  .cover-spacer{flex:1;}
+  .cover-meta{
+    position:relative; z-index:2;
+    display:flex; gap:0; border:1px solid rgba(255,255,255,.25);
+    border-radius:8px; overflow:hidden; max-width:150mm;
+  }
+  .cover-meta .cell{padding:6mm 8mm; flex:1;}
+  .cover-meta .cell + .cell{border-left:1px solid rgba(255,255,255,.25);}
+  .cover-meta .lbl{font-size:7.5pt; letter-spacing:.2em; text-transform:uppercase; color:var(--leaf); font-weight:700;}
+  .cover-meta .val{font-size:12pt; font-weight:600; margin-top:2mm;}
+  .cover-foot{
+    position:relative; z-index:2;
+    margin-top:8mm; font-size:8.5pt; color:rgba(255,255,255,.6);
+  }
+
+  /* ===== Section structure ===== */
+  .section{break-before:page;}
+  .sec-head{
+    display:flex; align-items:baseline; gap:5mm;
+    border-bottom:2px solid var(--green-600);
+    padding-bottom:3mm; margin-bottom:6mm;
+  }
+  .sec-num{
+    font-size:30pt; font-weight:800; color:var(--leaf);
+    line-height:1; letter-spacing:-1px;
+  }
+  .sec-title{font-size:19pt; font-weight:700; color:var(--green-800); margin:0;}
+  .sec-intro{color:var(--muted); margin:-2mm 0 6mm; font-size:10.5pt;}
+
+  h3{font-size:13pt; color:var(--green-700); margin:7mm 0 2mm; font-weight:700;}
+  h4{font-size:11pt; color:var(--green-800); margin:5mm 0 1mm; font-weight:700;}
+  p{margin:0 0 3mm;}
+  ul,ol{margin:0 0 4mm; padding-left:6mm;}
+  li{margin-bottom:1.5mm;}
+  strong{color:var(--ink);}
+  code{
+    font-family:"Cascadia Code","Consolas",monospace; font-size:9pt;
+    background:var(--bg-soft); border:1px solid var(--line);
+    border-radius:4px; padding:.5mm 1.5mm; color:var(--green-800);
+  }
+
+  /* ===== Tables ===== */
+  table{width:100%; border-collapse:collapse; margin:3mm 0 5mm; font-size:9pt;}
+  th{
+    background:var(--green-700); color:#fff; text-align:left;
+    padding:2.4mm 3mm; font-weight:600; font-size:8.5pt;
+    letter-spacing:.02em;
+  }
+  td{padding:2.2mm 3mm; border-bottom:1px solid var(--line); vertical-align:top;}
+  tr:nth-child(even) td{background:var(--bg-soft);}
+  table.fields td:first-child{font-family:"Consolas",monospace; color:var(--green-800); white-space:nowrap;}
+  .req{color:var(--del); font-weight:700;}
+  .opt{color:var(--muted);}
+
+  /* ===== Cards / callouts ===== */
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:5mm; margin:4mm 0;}
+  .card{
+    background:var(--bg-card); border:1px solid var(--line);
+    border-radius:8px; padding:5mm; break-inside:avoid;
+  }
+  .card .c-title{font-weight:700; color:var(--green-800); margin-bottom:2mm; font-size:11pt;}
+  .card .c-tag{
+    display:inline-block; font-size:7.5pt; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--green-600); font-weight:700; margin-bottom:1mm;
+  }
+  .callout{
+    border-left:4px solid var(--leaf); background:#f1f7ec;
+    padding:4mm 5mm; border-radius:0 6px 6px 0; margin:4mm 0; break-inside:avoid;
+  }
+  .callout.warn{border-left-color:var(--put); background:#fbf4e6;}
+  .callout.info{border-left-color:var(--post); background:#eef4fa;}
+  .callout .ct{font-weight:700; color:var(--green-800); margin-bottom:1mm;}
+  .callout.warn .ct{color:#8a6212;}
+  .callout.info .ct{color:#235a8c;}
+
+  /* ===== Endpoint blocks ===== */
+  .ep{
+    border:1px solid var(--line); border-radius:8px; margin:0 0 4mm;
+    overflow:hidden; break-inside:avoid;
+  }
+  .ep-head{
+    display:flex; align-items:center; gap:3mm;
+    background:var(--bg-soft); padding:2.6mm 4mm; border-bottom:1px solid var(--line);
+  }
+  .verb{
+    font-family:"Consolas",monospace; font-weight:700; font-size:8pt;
+    color:#fff; padding:1mm 2.5mm; border-radius:4px; letter-spacing:.04em;
+    min-width:15mm; text-align:center;
+  }
+  .verb.get{background:var(--get);}
+  .verb.post{background:var(--post);}
+  .verb.put{background:var(--put);}
+  .verb.delete{background:var(--del);}
+  .ep-path{font-family:"Consolas",monospace; font-size:9.5pt; font-weight:600; color:var(--ink);}
+  .ep-auth{margin-left:auto; font-size:7.5pt; font-weight:700; letter-spacing:.08em; text-transform:uppercase;}
+  .ep-auth.admin{color:var(--del);}
+  .ep-auth.auth{color:var(--green-600);}
+  .ep-auth.public{color:var(--muted);}
+  .ep-body{padding:3.5mm 4mm;}
+  .ep-body p{margin:0 0 2mm;}
+  .ep-body .lbl{font-size:7.5pt; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700; margin-top:2mm;}
+
+  .toc-list{list-style:none; padding:0; margin:6mm 0;}
+  .toc-list li{
+    display:flex; align-items:baseline; padding:3mm 0; border-bottom:1px solid var(--line);
+    font-size:11.5pt;
+  }
+  .toc-num{color:var(--leaf); font-weight:800; width:12mm; font-size:13pt;}
+  .toc-name{font-weight:600; color:var(--green-800);}
+  .toc-dots{flex:1; border-bottom:1.5px dotted var(--line); margin:0 3mm 1.5mm;}
+
+  .pill{display:inline-block; background:var(--green-600); color:#fff; font-size:8pt; font-weight:600; padding:.6mm 2.5mm; border-radius:20px; letter-spacing:.03em;}
+  .muted{color:var(--muted);}
+  .nowrap{white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- Running header & footer (repeat every page; covered by the cover page) -->
+<div class="run-header">
+  <span>Grupo Facholi · Sementes e Nutrição</span>
+  <span class="rh-right">Documentação Técnica — API de Originação</span>
+</div>
+<div class="run-footer">
+  <span>API de Originação de Gado · v1</span>
+  <span><span class="ico-leaf">✦</span> Confidencial — Uso interno</span>
+</div>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <img class="cover-logo" src="data:image/png;base64,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" alt="Facholi">
+  <div class="cover-kicker">Documentação Técnica de API</div>
+  <div class="cover-title">API de Originação<br>de Gado</div>
+  <div class="cover-sub">Referência técnica completa: arquitetura, autenticação, modelo de dados, endpoints e regras de cálculo da plataforma de originação Facholi.</div>
+  <div class="cover-spacer"></div>
+  <div class="cover-meta">
+    <div class="cell"><div class="lbl">Documento</div><div class="val">Referência Técnica da API</div></div>
+    <div class="cell"><div class="lbl">Versão</div><div class="val">v1 · 2026</div></div>
+    <div class="cell"><div class="lbl">Plataforma</div><div class="val">ASP.NET Core 8</div></div>
+  </div>
+  <div class="cover-foot">© 2026 Grupo Facholi — Sementes e Nutrição. Distribuição restrita à equipe técnica.</div>
+</div>
+
+<!-- ============ SUMÁRIO ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">—</div>
+    <h1 class="sec-title">Sumário</h1>
+  </div>
+  <p class="sec-intro">Navegue pelas seções para localizar rapidamente as informações técnicas da API.</p>
+  <ul class="toc-list">
+    <li><span class="toc-num">01</span><span class="toc-name">Visão Geral</span><span class="toc-dots"></span><span class="muted">Propósito e capacidades</span></li>
+    <li><span class="toc-num">02</span><span class="toc-name">Arquitetura e Tecnologias</span><span class="toc-dots"></span><span class="muted">Stack e camadas</span></li>
+    <li><span class="toc-num">03</span><span class="toc-name">Autenticação e Autorização</span><span class="toc-dots"></span><span class="muted">JWT e perfis</span></li>
+    <li><span class="toc-num">04</span><span class="toc-name">Convenções da API</span><span class="toc-dots"></span><span class="muted">Erros, paginação, unidades</span></li>
+    <li><span class="toc-num">05</span><span class="toc-name">Modelo de Dados</span><span class="toc-dots"></span><span class="muted">Entidades e campos</span></li>
+    <li><span class="toc-num">06</span><span class="toc-name">Referência de Endpoints</span><span class="toc-dots"></span><span class="muted">Todos os recursos</span></li>
+    <li><span class="toc-num">07</span><span class="toc-name">Regras de Cálculo e Negócio</span><span class="toc-dots"></span><span class="muted">Fórmulas e validações</span></li>
+    <li><span class="toc-num">08</span><span class="toc-name">Execução e Configuração</span><span class="toc-dots"></span><span class="muted">Como rodar e Swagger</span></li>
+    <li><span class="toc-num">09</span><span class="toc-name">Suporte e Considerações Finais</span><span class="toc-dots"></span><span class="muted">Contato</span></li>
+  </ul>
+</div>
+
+<!-- ============ 01 VISÃO GERAL ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">01</div><h1 class="sec-title">Visão Geral</h1></div>
+  <p class="sec-intro">O que é a API e quais problemas ela resolve.</p>
+
+  <p>A <strong>API de Originação de Gado</strong> (projeto <code>PrecoBoi.Api</code>) é o serviço de back-end da plataforma Facholi para apoio à compra e originação de bovinos. Ela centraliza cadastros de referência, o motor de <strong>simulação de preços de praça</strong>, a gestão do ciclo de vida das <strong>negociações</strong> e os <strong>dashboards</strong> analíticos consumidos pelo aplicativo web (PWA).</p>
+
+  <h3>Principais capacidades</h3>
+  <div class="grid2">
+    <div class="card"><div class="c-tag">Cadastros</div><div class="c-title">Dados de referência</div>Corretores, municípios de origem/destino, categorias de gado, ICMS por UF, cotações regionais e configuração de comissão — com trilha de auditoria.</div>
+    <div class="card"><div class="c-tag">Simulação</div><div class="c-title">Preço de praça</div>Cálculo do preço na praça a partir do preço colocado (descontando frete, ICMS e comissão) e rankings de oportunidades de compra por origem.</div>
+    <div class="card"><div class="c-tag">Negociações</div><div class="c-title">Ciclo de compra</div>Criação, edição, fechamento e controle de entregas das negociações, com cálculo automático do preço colocado por item.</div>
+    <div class="card"><div class="c-tag">Dashboards</div><div class="c-title">Indicadores</div>Consolidação de volumes e preços médios ponderados por comprador, corretor e categoria.</div>
+  </div>
+
+  <div class="callout info">
+    <div class="ct">Glossário rápido</div>
+    <strong>Praça:</strong> preço de referência na região de origem. &nbsp;•&nbsp;
+    <strong>Colocado:</strong> preço posto na fazenda (R$/kg). &nbsp;•&nbsp;
+    <strong>Arroba (@):</strong> 30&nbsp;kg. &nbsp;•&nbsp;
+    <strong>Ágio/Deságio:</strong> diferença percentual frente à cotação da praça.
+  </div>
+</div>
+
+<!-- ============ 02 ARQUITETURA ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">02</div><h1 class="sec-title">Arquitetura e Tecnologias</h1></div>
+  <p class="sec-intro">Stack tecnológico e organização em camadas.</p>
+
+  <h3>Stack</h3>
+  <table>
+    <tr><th style="width:38%">Componente</th><th>Tecnologia</th></tr>
+    <tr><td>Plataforma / runtime</td><td>.NET 8 — ASP.NET Core Web API</td></tr>
+    <tr><td>Acesso a dados</td><td>Dapper (micro-ORM) sobre Npgsql</td></tr>
+    <tr><td>Banco de dados</td><td>PostgreSQL (colunas em <code>snake_case</code> mapeadas para <code>PascalCase</code>)</td></tr>
+    <tr><td>Autenticação</td><td>JWT Bearer (HMAC-SHA256)</td></tr>
+    <tr><td>Hash de senha</td><td>BCrypt</td></tr>
+    <tr><td>Documentação</td><td>OpenAPI 3 via Swashbuckle (Swagger UI)</td></tr>
+  </table>
+
+  <h3>Organização em camadas</h3>
+  <table>
+    <tr><th style="width:30%">Camada</th><th>Responsabilidade</th></tr>
+    <tr><td><strong>Controllers</strong></td><td>Recebem requisições HTTP, validam o contexto do usuário e delegam para serviços/repositórios.</td></tr>
+    <tr><td><strong>Services</strong></td><td>Regras de negócio e cálculos: <code>AuthService</code>, <code>CalculoService</code>, <code>NegociacaoService</code>.</td></tr>
+    <tr><td><strong>Repositories</strong></td><td>Acesso a dados com Dapper; uma classe por agregado.</td></tr>
+    <tr><td><strong>Models</strong></td><td>Entidades de domínio persistidas.</td></tr>
+    <tr><td><strong>DTOs</strong></td><td>Contratos de entrada/saída (request/response) expostos pela API.</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="ct">CORS</div>
+    A API libera origens configuradas para o front-end (PWA), permitindo qualquer cabeçalho/método e credenciais. As origens permitidas são definidas por configuração de ambiente.
+  </div>
+</div>
+
+<!-- ============ 03 AUTENTICAÇÃO ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">03</div><h1 class="sec-title">Autenticação e Autorização</h1></div>
+  <p class="sec-intro">Como obter e usar o token de acesso.</p>
+
+  <h3>Fluxo de autenticação</h3>
+  <ol>
+    <li>O cliente envia e-mail e senha para <code>POST /api/auth/login</code>.</li>
+    <li>A API valida as credenciais (senha conferida via BCrypt) e o status ativo do usuário.</li>
+    <li>Em caso de sucesso, retorna um <strong>token JWT</strong> assinado, além de nome, e-mail, perfil e id.</li>
+    <li>O cliente envia o token nas requisições seguintes no cabeçalho <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+  </ol>
+
+  <div class="callout info">
+    <div class="ct">Claims do token</div>
+    O JWT carrega <code>NameIdentifier</code> (id), <code>Name</code> (nome), <code>Email</code> e <code>Role</code> (perfil). O perfil determina o acesso às operações administrativas.
+  </div>
+
+  <h3>Perfis de acesso</h3>
+  <div class="grid2">
+    <div class="card"><div class="c-tag">Perfil</div><div class="c-title">Administrador</div>Acesso total: gestão de usuários, todos os cadastros de referência, configuração de comissão e consulta à auditoria.</div>
+    <div class="card"><div class="c-tag">Perfil</div><div class="c-title">Comprador</div>Operação de negociações, simulações e dashboards. Pode editar/excluir apenas as negociações que criou.</div>
+  </div>
+
+  <table>
+    <tr><th>Tipo de operação</th><th>Acesso exigido</th></tr>
+    <tr><td>Login e diagnóstico de fuso horário</td><td><span class="ep-auth public">Público</span></td></tr>
+    <tr><td>Leitura de cadastros, simulação, negociações, dashboards</td><td><span class="ep-auth auth">Autenticado</span></td></tr>
+    <tr><td>Escrita em cadastros, usuários e auditoria</td><td><span class="ep-auth admin">Admin</span></td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ct">Respostas de autenticação</div>
+    Requisições sem token válido retornam <code>401 Unauthorized</code>. Usuários autenticados sem o perfil exigido recebem <code>403 Forbidden</code>.
+  </div>
+</div>
+
+<!-- ============ 04 CONVENÇÕES ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">04</div><h1 class="sec-title">Convenções da API</h1></div>
+  <p class="sec-intro">Padrões transversais a todos os endpoints.</p>
+
+  <h3>Base e formato</h3>
+  <ul>
+    <li>Todas as rotas têm o prefixo <code>/api</code> e trafegam <code>application/json</code>.</li>
+    <li>Datas e horas seguem o fuso do servidor (America/São_Paulo).</li>
+    <li>Valores monetários em Reais (R$). Preços de gado em <strong>R$/kg</strong> ou <strong>R$/@</strong> (arroba = 30&nbsp;kg).</li>
+  </ul>
+
+  <h3>Tratamento de erros</h3>
+  <p>Erros de negócio e validação retornam <code>400 Bad Request</code> com um corpo no formato:</p>
+  <table>
+    <tr><th style="width:30%">Campo</th><th>Descrição</th></tr>
+    <tr><td><code>mensagem</code></td><td>Texto explicativo do erro, adequado para exibição ao usuário.</td></tr>
+  </table>
+
+  <h3>Códigos de status usados</h3>
+  <table>
+    <tr><th style="width:24%">Código</th><th>Significado</th></tr>
+    <tr><td><code>200 OK</code></td><td>Sucesso com corpo de resposta.</td></tr>
+    <tr><td><code>201 Created</code></td><td>Recurso criado (retorna o recurso).</td></tr>
+    <tr><td><code>204 No Content</code></td><td>Sucesso sem corpo (atualizações/exclusões).</td></tr>
+    <tr><td><code>400 Bad Request</code></td><td>Dados inválidos ou regra de negócio violada.</td></tr>
+    <tr><td><code>401 Unauthorized</code></td><td>Token ausente ou inválido.</td></tr>
+    <tr><td><code>403 Forbidden</code></td><td>Sem permissão (perfil insuficiente).</td></tr>
+    <tr><td><code>404 Not Found</code></td><td>Recurso não encontrado.</td></tr>
+    <tr><td><code>409 Conflict</code></td><td>Conflito (ex.: e-mail já cadastrado).</td></tr>
+  </table>
+
+  <h3>Paginação</h3>
+  <p>Listagens paginadas aceitam <code>pagina</code> e <code>tamanhoPagina</code> na query string e retornam o envelope:</p>
+  <table class="fields">
+    <tr><th style="width:30%">Campo</th><th>Descrição</th></tr>
+    <tr><td>items</td><td>Coleção de registros da página.</td></tr>
+    <tr><td>total</td><td>Total de registros que atendem ao filtro.</td></tr>
+    <tr><td>pagina</td><td>Página atual.</td></tr>
+    <tr><td>tamanhoPagina</td><td>Quantidade de itens por página.</td></tr>
+  </table>
+</div>
+
+<!-- ============ 05 MODELO DE DADOS ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">05</div><h1 class="sec-title">Modelo de Dados</h1></div>
+  <p class="sec-intro">Principais entidades de domínio e seus campos.</p>
+
+  <h4>Usuário</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>id</td><td>int</td><td>Identificador.</td></tr>
+    <tr><td>nome</td><td>string</td><td>Nome do usuário.</td></tr>
+    <tr><td>email</td><td>string</td><td>E-mail (usado no login).</td></tr>
+    <tr><td>telefone</td><td>string</td><td>Telefone de contato.</td></tr>
+    <tr><td>perfil</td><td>string</td><td><code>Admin</code> ou <code>Comprador</code>.</td></tr>
+    <tr><td>ativo</td><td>bool</td><td>Se pode acessar o sistema.</td></tr>
+    <tr><td>criadoEm</td><td>datetime</td><td>Data de criação.</td></tr>
+  </table>
+
+  <h4>Corretor</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>id</td><td>int</td><td>Identificador.</td></tr>
+    <tr><td>nome / telefone</td><td>string</td><td>Identificação e contato.</td></tr>
+    <tr><td>municipio / uf</td><td>string</td><td>Localização do corretor.</td></tr>
+    <tr><td>propriedade</td><td>string</td><td>Propriedade associada.</td></tr>
+    <tr><td>observacoes</td><td>string</td><td>Anotações livres.</td></tr>
+    <tr><td>ativo</td><td>bool</td><td>Status do corretor.</td></tr>
+  </table>
+
+  <h4>Município de Origem</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>nome / uf</td><td>string</td><td>Município e UF.</td></tr>
+    <tr><td>distanciaKm</td><td>decimal</td><td>Distância até o destino (km).</td></tr>
+    <tr><td>valorKm</td><td>decimal</td><td>Valor do frete por km.</td></tr>
+    <tr><td>ativo</td><td>bool</td><td>Disponível para simulação/negociação.</td></tr>
+  </table>
+
+  <h4>Categoria</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>nome</td><td>string</td><td>Ex.: Bezerro, Garrote, Boi.</td></tr>
+    <tr><td>pesoMin / pesoMax</td><td>decimal</td><td>Faixa de peso (kg).</td></tr>
+    <tr><td>pesoMedio</td><td>decimal</td><td>Peso médio usado nos cálculos.</td></tr>
+    <tr><td>cabCaminhao</td><td>int</td><td>Cabeças por caminhão (rateio do frete).</td></tr>
+    <tr><td>ordem</td><td>int</td><td>Ordem de exibição.</td></tr>
+  </table>
+
+  <h4>ICMS (por UF)</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>uf</td><td>string</td><td>Unidade federativa.</td></tr>
+    <tr><td>aliquota</td><td>decimal</td><td>Alíquota de ICMS.</td></tr>
+    <tr><td>recuperacao</td><td>decimal</td><td>Percentual de recuperação.</td></tr>
+    <tr><td>icmsEfetivo</td><td>decimal</td><td>ICMS efetivo aplicado no cálculo.</td></tr>
+  </table>
+
+  <h4>Cotação Regional</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>uf</td><td>string</td><td>UF da praça.</td></tr>
+    <tr><td>pracaReferenciaUf</td><td>string?</td><td>UF de referência (opcional).</td></tr>
+    <tr><td>valorArroba</td><td>decimal</td><td>Cotação da arroba (R$/@).</td></tr>
+    <tr><td>agios[]</td><td>lista</td><td>Ágio percentual por categoria.</td></tr>
+  </table>
+
+  <h4>Negociação &amp; Itens</h4>
+  <table class="fields">
+    <tr><th style="width:26%">Campo</th><th style="width:20%">Tipo</th><th>Descrição</th></tr>
+    <tr><td>numero</td><td>string</td><td>Identificador legível <code>NNN/AAAA</code>.</td></tr>
+    <tr><td>compradorId / corretorId</td><td>int</td><td>Partes da negociação.</td></tr>
+    <tr><td>municipioOrigemId / destinoId</td><td>int</td><td>Rota da operação.</td></tr>
+    <tr><td>dataPrevistaEntrega</td><td>datetime?</td><td>Previsão de entrega.</td></tr>
+    <tr><td>status</td><td>string</td><td><code>EmNegociacao</code> ou <code>Fechado</code>.</td></tr>
+    <tr><td>itens[ ].categoriaId</td><td>int</td><td>Categoria do item.</td></tr>
+    <tr><td>itens[ ].qtdNegociada</td><td>int?</td><td>Cabeças negociadas.</td></tr>
+    <tr><td>itens[ ].precoNegociado</td><td>decimal?</td><td>R$/kg na praça (origem).</td></tr>
+    <tr><td>itens[ ].pesoMedio</td><td>decimal?</td><td>Peso médio do item.</td></tr>
+    <tr><td>itens[ ].precoColocado</td><td>decimal?</td><td>R$/kg posto fazenda (calculado).</td></tr>
+    <tr><td>itens[ ].qtdEntregue</td><td>int</td><td>Cabeças entregues.</td></tr>
+    <tr><td>itens[ ].statusEntrega</td><td>string</td><td><code>Pendente</code> / <code>Parcial</code> / <code>Concluido</code>.</td></tr>
+  </table>
+</div>
+
+<!-- ============ 06 ENDPOINTS ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">06</div><h1 class="sec-title">Referência de Endpoints</h1></div>
+  <p class="sec-intro">Todos os recursos expostos, agrupados por área. Legenda de acesso: <span class="ep-auth public">Público</span> &nbsp; <span class="ep-auth auth">Autenticado</span> &nbsp; <span class="ep-auth admin">Admin</span>.</p>
+
+  <h3>Autenticação</h3>
+  <div class="ep">
+    <div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/auth/login</span><span class="ep-auth public">Público</span></div>
+    <div class="ep-body"><p>Autentica e retorna o token JWT.</p>
+      <div class="lbl">Corpo</div><p><code>email</code>, <code>senha</code></p>
+      <div class="lbl">Respostas</div><p><code>200</code> token + dados · <code>401</code> credenciais inválidas/usuário inativo</p></div>
+  </div>
+  <div class="ep">
+    <div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/auth/me</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Retorna os dados do usuário do token atual.</p>
+      <div class="lbl">Respostas</div><p><code>200</code> usuário · <code>404</code> não encontrado</p></div>
+  </div>
+
+  <h3>Usuários</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/usuarios</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista usuários. Filtro opcional <code>?ativo=true|false</code>.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/usuarios/{id}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Obtém um usuário. <code>404</code> se não existir.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/usuarios</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Cria um usuário (senha armazenada com hash BCrypt).</p>
+      <div class="lbl">Corpo</div><p><code>nome</code>, <code>email</code>, <code>senha</code>, <code>telefone</code>, <code>perfil</code>, <code>ativo</code></p>
+      <div class="lbl">Respostas</div><p><code>201</code> criado · <code>409</code> e-mail já cadastrado</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/usuarios/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Atualiza um usuário. A senha só muda se <code>senha</code> for informada.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb delete">DELETE</span><span class="ep-path">/api/usuarios/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Exclui um usuário.</p></div></div>
+
+  <h3>Cadastros — Corretores</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/corretores</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista corretores. Filtro opcional <code>?ativo</code>.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/corretores/{id}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Obtém um corretor.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/corretores</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Cria um corretor (gera auditoria).</p>
+      <div class="lbl">Corpo</div><p><code>nome</code>, <code>telefone</code>, <code>municipio</code>, <code>uf</code>, <code>propriedade</code>, <code>observacoes</code>, <code>ativo</code></p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/corretores/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Atualiza um corretor.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb delete">DELETE</span><span class="ep-path">/api/corretores/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Exclui um corretor.</p></div></div>
+
+  <h3>Cadastros — Municípios</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/municipios-origem</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista municípios de origem (distância e valor por km). Filtro <code>?ativo</code>.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/municipios-origem/{id}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Obtém um município de origem.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/municipios-origem</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Cria um município de origem.</p>
+      <div class="lbl">Corpo</div><p><code>nome</code>, <code>uf</code>, <code>distanciaKm</code>, <code>valorKm</code>, <code>ativo</code></p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/municipios-origem/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Atualiza um município. Mudança no valor por km é auditada.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb delete">DELETE</span><span class="ep-path">/api/municipios-origem/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Exclui um município de origem.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/municipios-destino</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista municípios de destino.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/municipios-destino/padrao</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Retorna o município de destino padrão.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/municipios-destino</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Cria um município de destino. Corpo: <code>nome</code>, <code>uf</code>, <code>padrao</code>.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/municipios-destino/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Atualiza um município de destino.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb delete">DELETE</span><span class="ep-path">/api/municipios-destino/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Exclui um município de destino.</p></div></div>
+
+  <h3>Cadastros — Categorias</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/categorias</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista categorias e seus parâmetros.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/categorias</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Cria categoria. Valida faixa de peso (mín &lt; máx), peso médio dentro da faixa e cabeças por caminhão &gt; 0.</p>
+      <div class="lbl">Corpo</div><p><code>nome</code>, <code>pesoMin</code>, <code>pesoMax</code>, <code>pesoMedio</code>, <code>cabCaminhao</code>, <code>ordem</code>, <code>agioPadrao?</code></p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/categorias/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Atualiza uma categoria.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb delete">DELETE</span><span class="ep-path">/api/categorias/{id}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Exclui uma categoria. Bloqueada se estiver em uso em itens de negociação (<code>400</code>).</p></div></div>
+
+  <h3>Cadastros — ICMS, Cotações e Comissão</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/icms</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista alíquotas de ICMS e recuperação por UF.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/icms/{uf}</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Atualiza o ICMS de uma UF. Corpo: <code>aliquota</code>, <code>recuperacao</code>. Mudança de alíquota é auditada.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/cotacoes</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista cotações regionais (valor da arroba e ágios por categoria).</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/cotacoes/{uf}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Obtém a cotação de uma UF. <code>404</code> se não cadastrada.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/cotacoes</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Cria/atualiza (upsert) a cotação de uma UF. Mudança no valor da arroba é auditada.</p>
+      <div class="lbl">Corpo</div><p><code>uf</code>, <code>pracaReferenciaUf?</code>, <code>valorArroba</code>, <code>agios[]</code> (<code>categoriaId</code>, <code>percentual</code>)</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/config-comissao</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Obtém a configuração de comissão vigente.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/config-comissao</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Salva a configuração de comissão. Corpo: <code>percentual</code>, <code>ativo</code>. Mudança é auditada.</p></div></div>
+
+  <h3>Auditoria</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/auditoria</span><span class="ep-auth admin">Admin</span></div>
+    <div class="ep-body"><p>Lista o trilho de auditoria, paginado.</p>
+      <div class="lbl">Filtros (query)</div><p><code>tabela</code>, <code>usuarioId</code>, <code>dataInicio</code>, <code>dataFim</code>, <code>pagina</code>, <code>tamanhoPagina</code></p></div></div>
+
+  <h3>Simulação</h3>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/simulacao</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Calcula o preço de praça por categoria para uma rota origem→destino.</p>
+      <div class="lbl">Corpo</div><p><code>municipioOrigemId</code>, <code>municipioDestinoId</code>, <code>itens[]</code> (<code>categoriaId</code>, <code>precoColocado</code> R$/kg)</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/simulacao/oportunidades</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Ranking (Modo A — com ICMS) por categoria e preço colocado, ordenado pelo maior ágio.</p>
+      <div class="lbl">Query</div><p><code>categoriaId</code>, <code>precoColocado</code> (&gt; 0)</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/simulacao/oportunidades-praca</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Ranking (Modo B — sem ICMS) ordenado pelo menor custo colocado. Origens sem cotação ativa são ignoradas.</p>
+      <div class="lbl">Query</div><p><code>categoriaId</code></p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/simulacao/rapida</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Frete por kg de todas as categorias para uma rota. Query: <code>origemId</code>, <code>destinoId</code>.</p></div></div>
+
+  <h3>Negociações</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/negociacoes</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Lista negociações paginadas.</p>
+      <div class="lbl">Filtros (query)</div><p><code>compradorId</code>, <code>corretorId</code>, <code>categoria</code>, <code>uf</code>, <code>cidadeOrigem</code>, <code>status</code>, <code>pagina</code>, <code>tamanhoPagina</code></p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/negociacoes/{id}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Obtém uma negociação completa (com itens).</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/negociacoes</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Cria uma negociação. Exige ao menos uma categoria com quantidade &gt; 0. O preço colocado de cada item é calculado automaticamente.</p>
+      <div class="lbl">Corpo</div><p><code>compradorId</code>, <code>corretorId</code>, <code>municipioOrigemId</code>, <code>municipioDestinoId</code>, <code>dataPrevistaEntrega?</code>, <code>observacoes?</code>, <code>itens[]</code></p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/negociacoes/{id}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Atualiza uma negociação. Negociação fechada não pode ser editada. Comprador só edita as próprias (<code>403</code>). Alterações são auditadas item a item.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb delete">DELETE</span><span class="ep-path">/api/negociacoes/{id}</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Exclui uma negociação. Comprador só exclui as próprias (<code>403</code>).</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb post">POST</span><span class="ep-path">/api/negociacoes/{id}/fechar</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Fecha a negociação (status → <code>Fechado</code>). Já fechada retorna <code>400</code>.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb put">PUT</span><span class="ep-path">/api/negociacoes/entrega</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Registra quantidades entregues por item. Disponível apenas para negociações fechadas. Atualiza o status de entrega de cada item.</p>
+      <div class="lbl">Corpo</div><p><code>negociacaoId</code>, <code>itens[]</code> (<code>itemId</code>, <code>qtdEntregue</code>)</p></div></div>
+
+  <h3>Dashboard</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/totais</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Totais consolidados (quantidade e preços médios ponderados) da base filtrada.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/compradores</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Indicadores agregados por comprador.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/compradores/{id}/negociacoes</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Negociações de um comprador específico.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/compradores/{id}/categorias-corretor</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Distribuição por corretor e categoria das negociações do comprador.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/corretores</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Indicadores agregados por corretor e categoria.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/por-categoria</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Indicadores agregados por categoria.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/por-categoria/{id}/detalhe</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Quebra de uma categoria por comprador e corretor.</p></div></div>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/dashboard/resumo-cabecas</span><span class="ep-auth auth">Autenticado</span></div>
+    <div class="ep-body"><p>Resumo de cabeças em andamento e fechadas, por categoria e total geral.</p></div></div>
+
+  <h3>Diagnóstico</h3>
+  <div class="ep"><div class="ep-head"><span class="verb get">GET</span><span class="ep-path">/api/debug/tz</span><span class="ep-auth public">Público</span></div>
+    <div class="ep-body"><p>Compara fuso e horário do servidor (.NET) e do PostgreSQL. Útil para diagnosticar divergências de fuso horário.</p></div></div>
+</div>
+
+<!-- ============ 07 REGRAS DE CÁLCULO ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">07</div><h1 class="sec-title">Regras de Cálculo e Negócio</h1></div>
+  <p class="sec-intro">Fórmulas do motor de precificação e validações de domínio.</p>
+
+  <h3>Frete por quilograma</h3>
+  <p>Base de todos os cálculos. Considera ida e volta (×2) e um fator de recuperação de 88%:</p>
+  <div class="callout">
+    <code>FreteKg = (DistânciaKm × 2 × ValorKm × 0,88) ÷ CabCaminhão ÷ PesoMédio</code>
+  </div>
+
+  <h3>Direção 1 — Colocado → Praça (Simulação)</h3>
+  <p>A partir do preço posto na fazenda, deduz frete, ICMS e comissão para chegar ao preço de praça:</p>
+  <table class="fields">
+    <tr><th style="width:42%">Passo</th><th>Fórmula</th></tr>
+    <tr><td>Valor na compra</td><td><code>PrecoColocado − FreteKg</code></td></tr>
+    <tr><td>ICMS</td><td><code>ValorNaCompra × IcmsEfetivo</code></td></tr>
+    <tr><td>Comissão</td><td><code>ValorNaCompra × (Percentual ÷ 100)</code> — se ativa</td></tr>
+    <tr><td>Preço de praça</td><td><code>ValorNaCompra − ICMS − Comissão</code> (arredondado p/ baixo a 1 casa)</td></tr>
+  </table>
+
+  <h3>Direção 2 — Negociado → Colocado (Negociações)</h3>
+  <p>Cálculo inverso usado ao registrar itens de negociação. ICMS e comissão incidem sobre o preço negociado:</p>
+  <div class="callout">
+    <code>PrecoColocado = PrecoNegociado + FreteKg + (PrecoNegociado × IcmsEfetivo) + (PrecoNegociado × Comissão%)</code>
+  </div>
+
+  <h3>Direção 3 — Cotação da praça (Modo B)</h3>
+  <p>Custo de buscar o animal na origem, sem ICMS:</p>
+  <table class="fields">
+    <tr><th style="width:42%">Passo</th><th>Fórmula</th></tr>
+    <tr><td>Cotação da praça (R$/kg)</td><td><code>(ValorArroba ÷ 30) × (1 + Ágio% da categoria)</code></td></tr>
+    <tr><td>Custo colocado (R$/kg)</td><td><code>CotacaoPracaKg + FreteKg</code></td></tr>
+  </table>
+
+  <h3>Deságio (Modo A)</h3>
+  <p>Compara o preço de praça calculado com a cotação <em>crua</em> da praça (sem ágio):</p>
+  <div class="callout">
+    <code>Deságio% = (PrecoPraca ÷ (ValorArroba ÷ 30) − 1) × 100</code><br>
+    <span class="muted">Positivo = pagando acima da praça (favorável). Negativo = abaixo.</span>
+  </div>
+
+  <h3>Validações de negociação</h3>
+  <ul>
+    <li>Pelo menos uma categoria deve ter quantidade de cabeças maior que zero.</li>
+    <li>Observações são limitadas a 500 caracteres.</li>
+    <li>Negociação <strong>fechada</strong> não pode ser editada.</li>
+    <li>Comprador só pode editar/excluir negociações que criou; Admin não tem essa restrição.</li>
+    <li>Controle de entrega disponível somente para negociações fechadas; <code>qtdEntregue</code> não pode ser negativa.</li>
+    <li>Status de entrega: <code>Pendente</code> (0), <code>Concluido</code> (≥ negociada) ou <code>Parcial</code>.</li>
+  </ul>
+
+  <div class="callout info">
+    <div class="ct">Auditoria automática</div>
+    Criação, edição, exclusão, fechamento e entrega de negociações — bem como alterações de parâmetros (valor por km, ICMS, cotação, comissão) — são registradas na trilha de auditoria com usuário, valores anterior/novo e descrição.
+  </div>
+</div>
+
+<!-- ============ 08 EXECUÇÃO ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">08</div><h1 class="sec-title">Execução e Configuração</h1></div>
+  <p class="sec-intro">Como executar a API localmente e acessar a documentação interativa.</p>
+
+  <h3>Pré-requisitos</h3>
+  <ul>
+    <li>.NET SDK 8.0</li>
+    <li>Acesso a uma instância PostgreSQL</li>
+  </ul>
+
+  <h3>Executando</h3>
+  <table class="fields">
+    <tr><th style="width:40%">Comando</th><th>Descrição</th></tr>
+    <tr><td>dotnet restore</td><td>Restaura os pacotes.</td></tr>
+    <tr><td>dotnet build</td><td>Compila o projeto.</td></tr>
+    <tr><td>dotnet run</td><td>Sobe a API.</td></tr>
+  </table>
+
+  <h3>Documentação interativa (Swagger)</h3>
+  <p>Com a API em execução, a documentação OpenAPI fica disponível na rota <code>/swagger</code>. A interface inclui o botão <strong>Authorize</strong> para informar o token JWT e testar os endpoints protegidos diretamente do navegador.</p>
+
+  <h3>Configuração por ambiente</h3>
+  <p>As configurações sensíveis são fornecidas por variáveis de ambiente / arquivo de configuração do ambiente, <strong>não devendo ser versionadas com valores reais</strong>:</p>
+  <table class="fields">
+    <tr><th style="width:42%">Chave</th><th>Descrição</th></tr>
+    <tr><td>ConnectionStrings:DefaultConnection</td><td>String de conexão com o PostgreSQL.</td></tr>
+    <tr><td>Jwt:Key</td><td>Chave secreta de assinatura do JWT.</td></tr>
+    <tr><td>Jwt:Issuer / Jwt:Audience</td><td>Emissor e público do token.</td></tr>
+    <tr><td>AllowedOrigins</td><td>Origens liberadas no CORS (separadas por vírgula).</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="ct">Boas práticas de segurança</div>
+    Mantenha string de conexão, credenciais e chave JWT fora do controle de versão (use variáveis de ambiente ou um gerenciador de segredos). Rotacione qualquer segredo que tenha sido exposto. Os valores reais foram omitidos desta documentação intencionalmente.
+  </div>
+</div>
+
+<!-- ============ 09 SUPORTE ============ -->
+<div class="section">
+  <div class="sec-head"><div class="sec-num">09</div><h1 class="sec-title">Suporte e Considerações Finais</h1></div>
+  <p class="sec-intro">Canais de apoio e encerramento.</p>
+
+  <p>Esta documentação descreve a superfície técnica da API de Originação na sua versão <strong>v1</strong>. Para a documentação sempre atualizada e testável, consulte o <strong>Swagger</strong> da própria aplicação em <code>/swagger</code>, que reflete o código em execução.</p>
+
+  <div class="grid2">
+    <div class="card"><div class="c-tag">Documentação viva</div><div class="c-title">Swagger / OpenAPI</div>Disponível em <code>/swagger</code> com todos os endpoints, esquemas e autenticação JWT integrada.</div>
+    <div class="card"><div class="c-tag">Suporte</div><div class="c-title">Equipe técnica</div>Em caso de dúvidas sobre integração ou comportamento da API, acione a equipe de desenvolvimento responsável.</div>
+  </div>
+
+  <div class="callout">
+    <div class="ct">Versionamento</div>
+    Alterações de contrato devem ser refletidas tanto no código (comentários XML / anotações) quanto nesta documentação, mantendo ambas as fontes consistentes.
+  </div>
+
+  <p class="muted" style="margin-top:10mm; text-align:center;">© 2026 Grupo Facholi — Sementes e Nutrição · Documentação Técnica da API de Originação de Gado</p>
+</div>
+
+</body>
+</html>

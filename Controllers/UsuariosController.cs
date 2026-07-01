@@ -3,12 +3,17 @@ using Microsoft.AspNetCore.Mvc;
 using PrecoBoi.Api.DTOs;
 using PrecoBoi.Api.Models;
 using PrecoBoi.Api.Repositories;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace PrecoBoi.Api.Controllers;
 
+/// <summary>Gestão de usuários do sistema (compradores e administradores).</summary>
+/// <remarks>Criação, edição e exclusão são restritas ao perfil <b>Admin</b>.</remarks>
 [ApiController]
 [Route("api/usuarios")]
 [Authorize]
+[Produces("application/json")]
+[SwaggerTag("CRUD de usuários — escrita restrita a Admin")]
 public class UsuariosController : ControllerBase
 {
     private readonly UsuarioRepository _repo;
@@ -20,7 +25,11 @@ public class UsuariosController : ControllerBase
         _auditoriaRepo = auditoriaRepo;
     }
 
+    /// <summary>Lista os usuários cadastrados.</summary>
+    /// <param name="ativo">Filtro opcional por status: <c>true</c> apenas ativos, <c>false</c> apenas inativos, omitido = todos.</param>
+    /// <response code="200">Lista de usuários.</response>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<UsuarioResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Listar([FromQuery] bool? ativo)
     {
         var usuarios = await _repo.Listar(ativo);
@@ -29,7 +38,13 @@ public class UsuariosController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>Obtém um usuário pelo identificador.</summary>
+    /// <param name="id">Identificador do usuário.</param>
+    /// <response code="200">Usuário encontrado.</response>
+    /// <response code="404">Usuário não encontrado.</response>
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(UsuarioResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObterPorId(int id)
     {
         var u = await _repo.ObterPorId(id);
@@ -37,8 +52,16 @@ public class UsuariosController : ControllerBase
         return Ok(new UsuarioResponse(u.Id, u.Nome, u.Email, u.Telefone, u.Perfil, u.Ativo, u.CriadoEm));
     }
 
+    /// <summary>Cria um novo usuário. <b>Requer perfil Admin.</b></summary>
+    /// <param name="request">Dados do usuário, incluindo a senha em texto puro (armazenada com hash BCrypt).</param>
+    /// <response code="201">Usuário criado.</response>
+    /// <response code="409">Já existe um usuário com o e-mail informado.</response>
+    /// <response code="403">Usuário autenticado não possui perfil Admin.</response>
     [HttpPost]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(UsuarioResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Criar([FromBody] UsuarioRequest request)
     {
         var existente = await _repo.ObterPorEmail(request.Email);
@@ -61,8 +84,18 @@ public class UsuariosController : ControllerBase
             id, usuario.Nome, usuario.Email, usuario.Telefone, usuario.Perfil, usuario.Ativo, usuario.CriadoEm));
     }
 
+    /// <summary>Atualiza um usuário existente. <b>Requer perfil Admin.</b></summary>
+    /// <remarks>A senha só é alterada quando o campo <c>senha</c> é informado e não vazio.</remarks>
+    /// <param name="id">Identificador do usuário.</param>
+    /// <param name="request">Novos dados do usuário.</param>
+    /// <response code="204">Usuário atualizado.</response>
+    /// <response code="404">Usuário não encontrado.</response>
+    /// <response code="403">Usuário autenticado não possui perfil Admin.</response>
     [HttpPut("{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Atualizar(int id, [FromBody] UsuarioUpdateRequest request)
     {
         var usuario = await _repo.ObterPorId(id);
@@ -83,8 +116,16 @@ public class UsuariosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Exclui um usuário. <b>Requer perfil Admin.</b></summary>
+    /// <param name="id">Identificador do usuário.</param>
+    /// <response code="204">Usuário excluído.</response>
+    /// <response code="404">Usuário não encontrado.</response>
+    /// <response code="403">Usuário autenticado não possui perfil Admin.</response>
     [HttpDelete("{id}")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Excluir(int id)
     {
         var usuario = await _repo.ObterPorId(id);

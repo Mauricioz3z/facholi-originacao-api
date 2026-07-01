@@ -64,10 +64,14 @@ public class NegociacaoService
         var negExistente = await _negRepo.ObterPorId(id)
             ?? throw new Exception("Negociação não encontrada");
 
-        if (negExistente.Status == "Fechado")
+        // Admin pode editar qualquer dado de qualquer negociação, inclusive fechadas.
+        // Demais perfis continuam bloqueados em negociações fechadas e só editam as próprias.
+        var ehAdmin = usuarioPerfil == "Admin";
+
+        if (negExistente.Status == "Fechado" && !ehAdmin)
             throw new Exception("Negociação fechada não pode ser editada");
 
-        if (usuarioPerfil != "Admin" && negExistente.CompradorId != usuarioId)
+        if (!ehAdmin && negExistente.CompradorId != usuarioId)
             throw new UnauthorizedAccessException("Você só pode editar negociações que criou.");
 
         var municipioOrigem = await _munOrigemRepo.ObterPorId(request.MunicipioOrigemId)
@@ -77,6 +81,11 @@ public class NegociacaoService
         var itensAnteriores = negExistente.Itens.ToList();
 
         // Auditar alterações no cabeçalho
+        if (negExistente.CompradorId != request.CompradorId)
+            await _auditoriaRepo.Registrar("negociacoes", id, "comprador_id",
+                negExistente.CompradorId.ToString(), request.CompradorId.ToString(),
+                usuarioId, usuarioNome, $"Comprador alterado na negociação {negExistente.Numero}");
+
         if (negExistente.CorretorId != request.CorretorId)
             await _auditoriaRepo.Registrar("negociacoes", id, "corretor_id",
                 negExistente.CorretorId.ToString(), request.CorretorId.ToString(),
@@ -87,14 +96,41 @@ public class NegociacaoService
                 negExistente.MunicipioOrigemId.ToString(), request.MunicipioOrigemId.ToString(),
                 usuarioId, usuarioNome, $"Município de origem alterado na negociação {negExistente.Numero}");
 
+        if (negExistente.MunicipioDestinoId != request.MunicipioDestinoId)
+            await _auditoriaRepo.Registrar("negociacoes", id, "municipio_destino_id",
+                negExistente.MunicipioDestinoId.ToString(), request.MunicipioDestinoId.ToString(),
+                usuarioId, usuarioNome, $"Município de destino alterado na negociação {negExistente.Numero}");
+
+        if (negExistente.DataPrevistaEntrega != request.DataPrevistaEntrega)
+            await _auditoriaRepo.Registrar("negociacoes", id, "data_prevista_entrega",
+                negExistente.DataPrevistaEntrega?.ToString("yyyy-MM-dd"), request.DataPrevistaEntrega?.ToString("yyyy-MM-dd"),
+                usuarioId, usuarioNome, $"Data prevista de entrega alterada na negociação {negExistente.Numero}");
+
+        var observacoesNovas = TruncarObservacoes(request.Observacoes);
+        if (negExistente.Observacoes != observacoesNovas)
+            await _auditoriaRepo.Registrar("negociacoes", id, "observacoes",
+                negExistente.Observacoes, observacoesNovas,
+                usuarioId, usuarioNome, $"Observações alteradas na negociação {negExistente.Numero}");
+
         negExistente.CompradorId = request.CompradorId;
         negExistente.CorretorId = request.CorretorId;
         negExistente.MunicipioOrigemId = request.MunicipioOrigemId;
         negExistente.MunicipioDestinoId = request.MunicipioDestinoId;
         negExistente.DataPrevistaEntrega = request.DataPrevistaEntrega;
-        negExistente.Observacoes = TruncarObservacoes(request.Observacoes);
+        negExistente.Observacoes = observacoesNovas;
         negExistente.AtualizadoEm = DateTime.Now;
         negExistente.Itens = await CalcularItens(request.Itens, municipioOrigem);
+
+        // Preserva entregas já registradas: ao recalcular, os itens são reinseridos
+        // zerados. Mantém qtd. entregue/status das categorias que continuam na negociação
+        // (relevante quando um Admin edita uma negociação fechada que já teve entregas).
+        foreach (var item in negExistente.Itens)
+        {
+            var ant = itensAnteriores.FirstOrDefault(i => i.CategoriaId == item.CategoriaId);
+            if (ant == null) continue;
+            item.QtdEntregue = ant.QtdEntregue;
+            item.StatusEntrega = CalcularStatusEntrega(ant.QtdEntregue, item.QtdNegociada);
+        }
 
         // Auditar alterações nos itens (comparando pelo categoriaId)
         foreach (var itemNovo in negExistente.Itens)
@@ -186,10 +222,7 @@ public class NegociacaoService
             if (itemReq.QtdEntregue < 0)
                 throw new Exception("Quantidade entregue não pode ser negativa");
 
-            string statusEntrega;
-            if (itemReq.QtdEntregue == 0) statusEntrega = "Pendente";
-            else if (item.QtdNegociada.HasValue && itemReq.QtdEntregue >= item.QtdNegociada.Value) statusEntrega = "Concluido";
-            else statusEntrega = "Parcial";
+            var statusEntrega = CalcularStatusEntrega(itemReq.QtdEntregue, item.QtdNegociada);
 
             await _negRepo.AtualizarItemEntrega(itemReq.ItemId, itemReq.QtdEntregue, statusEntrega);
         }
@@ -205,6 +238,14 @@ public class NegociacaoService
         var temAnimais = itens?.Any(i => i.QtdNegociada.HasValue && i.QtdNegociada.Value > 0) ?? false;
         if (!temAnimais)
             throw new Exception("Informe a quantidade de cabeças em pelo menos uma categoria. Não é possível salvar uma negociação com zero animais.");
+    }
+
+    // Deriva o status de entrega de um item a partir da qtd. entregue vs. negociada.
+    private static string CalcularStatusEntrega(int qtdEntregue, int? qtdNegociada)
+    {
+        if (qtdEntregue <= 0) return "Pendente";
+        if (qtdNegociada.HasValue && qtdEntregue >= qtdNegociada.Value) return "Concluido";
+        return "Parcial";
     }
 
     private static string? TruncarObservacoes(string? obs)
