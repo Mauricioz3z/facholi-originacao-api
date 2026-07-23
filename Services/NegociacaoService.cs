@@ -11,19 +11,22 @@ public class NegociacaoService
     private readonly MunicipioOrigemRepository _munOrigemRepo;
     private readonly CalculoService _calculoService;
     private readonly AuditoriaRepository _auditoriaRepo;
+    private readonly NegociacaoProdutorRepository _produtorRepo;
 
     public NegociacaoService(
         NegociacaoRepository negRepo,
         CategoriaRepository catRepo,
         MunicipioOrigemRepository munOrigemRepo,
         CalculoService calculoService,
-        AuditoriaRepository auditoriaRepo)
+        AuditoriaRepository auditoriaRepo,
+        NegociacaoProdutorRepository produtorRepo)
     {
         _negRepo = negRepo;
         _catRepo = catRepo;
         _munOrigemRepo = munOrigemRepo;
         _calculoService = calculoService;
         _auditoriaRepo = auditoriaRepo;
+        _produtorRepo = produtorRepo;
     }
 
     public async Task<Negociacao> Criar(NegociacaoRequest request, int usuarioId, string usuarioNome)
@@ -68,7 +71,7 @@ public class NegociacaoService
         // Demais perfis continuam bloqueados em negociações fechadas e só editam as próprias.
         var ehAdmin = usuarioPerfil == "Admin";
 
-        if (negExistente.Status == "Fechado" && !ehAdmin)
+        if (negExistente.Status != "EmNegociacao" && !ehAdmin)
             throw new Exception("Negociação fechada não pode ser editada");
 
         if (!ehAdmin && negExistente.CompradorId != usuarioId)
@@ -120,6 +123,21 @@ public class NegociacaoService
         negExistente.Observacoes = observacoesNovas;
         negExistente.AtualizadoEm = DateTime.Now;
         negExistente.Itens = await CalcularItens(request.Itens, municipioOrigem);
+
+        // Impede reduzir qtd_negociada abaixo do que já foi comprometido em lotes/produtores
+        // (embarques puxam do lote, e o lote não pode ultrapassar a qtd negociada da categoria).
+        foreach (var itemNovo in negExistente.Itens)
+        {
+            var somaLotes = await _produtorRepo.SomaQtdPorCategoria(id, itemNovo.CategoriaId);
+            if (somaLotes > 0 && (itemNovo.QtdNegociada ?? 0) < somaLotes)
+            {
+                var nomeCategoria = itensAnteriores.FirstOrDefault(a => a.CategoriaId == itemNovo.CategoriaId)?.CategoriaNome
+                    ?? $"categoria {itemNovo.CategoriaId}";
+                throw new Exception(
+                    $"Não é possível reduzir a quantidade de {nomeCategoria} para {itemNovo.QtdNegociada}: " +
+                    $"já há {somaLotes} CB comprometidos em lotes por produtor.");
+            }
+        }
 
         // Preserva entregas já registradas: ao recalcular, os itens são reinseridos
         // zerados. Mantém qtd. entregue/status das categorias que continuam na negociação
@@ -198,7 +216,7 @@ public class NegociacaoService
         var neg = await _negRepo.ObterPorId(id)
             ?? throw new Exception("Negociação não encontrada");
 
-        if (neg.Status == "Fechado")
+        if (neg.Status != "EmNegociacao")
             throw new Exception("Negociação já está fechada");
 
         await _negRepo.Fechar(id);
@@ -206,29 +224,56 @@ public class NegociacaoService
             usuarioId, usuarioNome, $"Negociação {neg.Numero} fechada");
     }
 
-    public async Task AtualizarEntrega(EntregaRequest request, int usuarioId, string usuarioNome)
+    // Status válidos do novo ciclo (Fase 2).
+    private static readonly string[] StatusValidos = { "EmNegociacao", "Fechado", "EmEntrega", "Concluido" };
+
+    // Alteração manual de status pelo Master: reabertura, ajuste de "Em entrega",
+    // ou conclusão forçada abaixo de 100% (ex.: 49 de 50). Toda mudança é auditada.
+    public async Task AlterarStatus(int id, string novoStatus, string? motivo, int usuarioId, string usuarioNome)
     {
-        var neg = await _negRepo.ObterPorId(request.NegociacaoId)
+        if (!StatusValidos.Contains(novoStatus))
+            throw new Exception($"Status inválido: {novoStatus}");
+
+        var neg = await _negRepo.ObterPorId(id)
             ?? throw new Exception("Negociação não encontrada");
 
-        if (neg.Status != "Fechado")
-            throw new Exception("Controle de entrega disponível apenas para negociações fechadas");
+        if (neg.Status == novoStatus) return;
 
-        foreach (var itemReq in request.Itens)
-        {
-            var item = neg.Itens.FirstOrDefault(i => i.Id == itemReq.ItemId)
-                ?? throw new Exception($"Item {itemReq.ItemId} não encontrado");
+        await _negRepo.AlterarStatus(id, novoStatus);
+        await _auditoriaRepo.Registrar("negociacoes", id, "status", neg.Status, novoStatus,
+            usuarioId, usuarioNome,
+            motivo != null
+                ? $"Status da negociação {neg.Numero} alterado manualmente: {motivo}"
+                : $"Status da negociação {neg.Numero} alterado manualmente de {neg.Status} para {novoStatus}");
+    }
 
-            if (itemReq.QtdEntregue < 0)
-                throw new Exception("Quantidade entregue não pode ser negativa");
+    // Automático: chamado por EmbarqueService ao registrar chegada. Não sobrescreve
+    // uma mudança manual mais avançada (ex.: já Concluido) e não regride status.
+    public async Task AvancarStatusAutomatico(int id, string statusSugerido, int usuarioId, string usuarioNome)
+    {
+        var ordem = new Dictionary<string, int> { ["EmNegociacao"] = 0, ["Fechado"] = 1, ["EmEntrega"] = 2, ["Concluido"] = 3 };
+        var neg = await _negRepo.ObterPorId(id)
+            ?? throw new Exception("Negociação não encontrada");
 
-            var statusEntrega = CalcularStatusEntrega(itemReq.QtdEntregue, item.QtdNegociada);
+        if (!ordem.TryGetValue(neg.Status, out var atual) || !ordem.TryGetValue(statusSugerido, out var sugerido))
+            return;
+        if (sugerido <= atual) return;
 
-            await _negRepo.AtualizarItemEntrega(itemReq.ItemId, itemReq.QtdEntregue, statusEntrega);
-        }
+        await _negRepo.AlterarStatus(id, statusSugerido);
+        await _auditoriaRepo.Registrar("negociacoes", id, "status", neg.Status, statusSugerido,
+            usuarioId, usuarioNome, $"Status da negociação {neg.Numero} avançou automaticamente para {statusSugerido}");
+    }
 
-        await _auditoriaRepo.Registrar("negociacoes", request.NegociacaoId, "entrega", null, null,
-            usuarioId, usuarioNome, $"Entrega atualizada para negociação {neg.Numero}");
+    public async Task AlterarComissaoPaga(int id, bool paga, int usuarioId, string usuarioNome)
+    {
+        var neg = await _negRepo.ObterPorId(id)
+            ?? throw new Exception("Negociação não encontrada");
+
+        if (neg.ComissaoPaga == paga) return;
+
+        await _negRepo.AlterarComissaoPaga(id, paga, usuarioId);
+        await _auditoriaRepo.Registrar("negociacoes", id, "comissao_paga", neg.ComissaoPaga.ToString(), paga.ToString(),
+            usuarioId, usuarioNome, $"Comissão da negociação {neg.Numero} marcada como {(paga ? "paga" : "não paga")}");
     }
 
     // Impede salvar negociação sem animais: pelo menos uma categoria

@@ -15,8 +15,13 @@ public class Negociacao
     public string MunicipioDestinoNome { get; set; } = string.Empty;
     public DateTime? DataPrevistaEntrega { get; set; }
     public string? Observacoes { get; set; }
-    public string Status { get; set; } = "EmNegociacao"; // EmNegociacao, Fechado
+    public string Status { get; set; } = "EmNegociacao"; // EmNegociacao, Fechado, EmEntrega, Concluido
     public DateTime? DataFechamento { get; set; }
+    public string TipoNegocio { get; set; } = "KG"; // Perna, KG — informativo, não afeta cálculo
+    public bool ComissaoPaga { get; set; }
+    public DateTime? ComissaoPagaEm { get; set; }
+    public int? ComissaoPagaPor { get; set; }
+    public int EmbarquesUltimoNumero { get; set; }
     public DateTime CriadoEm { get; set; } = DateTime.Now;
     public DateTime? AtualizadoEm { get; set; }
     public List<NegociacaoItem> Itens { get; set; } = new();

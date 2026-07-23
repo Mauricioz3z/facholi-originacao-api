@@ -148,19 +148,42 @@ public class NegociacoesController : ControllerBase
         }
     }
 
-    /// <summary>Registra as quantidades entregues dos itens de uma negociação.</summary>
-    /// <remarks>Atualiza o status de entrega de cada item (<c>Pendente</c>, <c>Parcial</c>, <c>Concluido</c>).</remarks>
-    /// <param name="request">Negociação e quantidades entregues por item.</param>
-    /// <response code="204">Entregas registradas.</response>
-    /// <response code="400">Dados inválidos ou regra de negócio violada.</response>
-    [HttpPut("entrega")]
+    /// <summary>Altera manualmente o status de uma negociação (reabertura, ajuste ou conclusão forçada).</summary>
+    /// <param name="id">Identificador da negociação.</param>
+    /// <param name="request">Novo status e motivo opcional.</param>
+    /// <response code="204">Status alterado.</response>
+    /// <response code="400">Status inválido ou negociação não encontrada.</response>
+    [HttpPut("{id}/status")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> AtualizarEntrega([FromBody] EntregaRequest request)
+    public async Task<IActionResult> AlterarStatus(int id, [FromBody] AlterarStatusRequest request)
     {
         try
         {
-            await _negService.AtualizarEntrega(request, ObterUsuarioId(), ObterUsuarioNome());
+            await _negService.AlterarStatus(id, request.Status, request.Motivo, ObterUsuarioId(), ObterUsuarioNome());
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { mensagem = ex.Message });
+        }
+    }
+
+    /// <summary>Marca a comissão da negociação como paga ou não paga.</summary>
+    /// <param name="id">Identificador da negociação.</param>
+    /// <param name="request">Novo estado da comissão.</param>
+    /// <response code="204">Comissão atualizada.</response>
+    /// <response code="400">Negociação não encontrada.</response>
+    [HttpPut("{id}/comissao")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> AlterarComissao(int id, [FromBody] AlterarComissaoRequest request)
+    {
+        try
+        {
+            await _negService.AlterarComissaoPaga(id, request.Paga, ObterUsuarioId(), ObterUsuarioNome());
             return NoContent();
         }
         catch (Exception ex)

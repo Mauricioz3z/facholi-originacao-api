@@ -28,11 +28,17 @@ builder.Services.AddScoped<CotacaoRegionalRepository>();
 builder.Services.AddScoped<ConfigComissaoRepository>();
 builder.Services.AddScoped<NegociacaoRepository>();
 builder.Services.AddScoped<AuditoriaRepository>();
+builder.Services.AddScoped<NegociacaoProdutorRepository>();
+builder.Services.AddScoped<EmbarqueRepository>();
+builder.Services.AddScoped<ConferenciaRepository>();
 
 // Services
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CalculoService>();
 builder.Services.AddScoped<NegociacaoService>();
+builder.Services.AddScoped<ProdutorService>();
+builder.Services.AddScoped<EmbarqueService>();
+builder.Services.AddScoped<ConferenciaService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]!;

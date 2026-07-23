@@ -32,9 +32,9 @@ public class NegociacaoRepository : BaseRepository
 
         var id = await conn.ExecuteScalarAsync<int>(
             @"INSERT INTO negociacoes (numero, comprador_id, corretor_id, municipio_origem_id,
-              municipio_destino_id, data_prevista_entrega, observacoes, status, criado_em)
+              municipio_destino_id, data_prevista_entrega, observacoes, status, tipo_negocio, criado_em)
               VALUES (@Numero, @CompradorId, @CorretorId, @MunicipioOrigemId,
-              @MunicipioDestinoId, @DataPrevistaEntrega, @Observacoes, @Status, @CriadoEm)
+              @MunicipioDestinoId, @DataPrevistaEntrega, @Observacoes, @Status, @TipoNegocio, @CriadoEm)
               RETURNING id", neg, tx);
 
         foreach (var item in neg.Itens)
@@ -60,7 +60,8 @@ public class NegociacaoRepository : BaseRepository
         await conn.ExecuteAsync(
             @"UPDATE negociacoes SET comprador_id=@CompradorId, corretor_id=@CorretorId,
               municipio_origem_id=@MunicipioOrigemId, municipio_destino_id=@MunicipioDestinoId,
-              data_prevista_entrega=@DataPrevistaEntrega, observacoes=@Observacoes, atualizado_em=@AtualizadoEm
+              data_prevista_entrega=@DataPrevistaEntrega, observacoes=@Observacoes, tipo_negocio=@TipoNegocio,
+              atualizado_em=@AtualizadoEm
               WHERE id=@Id", neg, tx);
 
         await conn.ExecuteAsync("DELETE FROM negociacao_itens WHERE negociacao_id=@Id", new { neg.Id }, tx);
@@ -92,12 +93,23 @@ public class NegociacaoRepository : BaseRepository
         await conn.ExecuteAsync("DELETE FROM negociacoes WHERE id=@Id", new { Id = id });
     }
 
-    public async Task AtualizarItemEntrega(int itemId, int qtdEntregue, string statusEntrega)
+    public async Task AlterarStatus(int id, string status)
     {
         using var conn = CreateConnection();
         await conn.ExecuteAsync(
-            "UPDATE negociacao_itens SET qtd_entregue=@QtdEntregue, status_entrega=@StatusEntrega WHERE id=@Id",
-            new { Id = itemId, QtdEntregue = qtdEntregue, StatusEntrega = statusEntrega });
+            "UPDATE negociacoes SET status=@Status, atualizado_em=@AtualizadoEm WHERE id=@Id",
+            new { Id = id, Status = status, AtualizadoEm = DateTime.Now });
+    }
+
+    public async Task AlterarComissaoPaga(int id, bool paga, int? usuarioId)
+    {
+        using var conn = CreateConnection();
+        await conn.ExecuteAsync(
+            @"UPDATE negociacoes SET comissao_paga=@Paga,
+              comissao_paga_em=CASE WHEN @Paga THEN @Agora ELSE NULL END,
+              comissao_paga_por=CASE WHEN @Paga THEN @UsuarioId ELSE NULL END
+              WHERE id=@Id",
+            new { Id = id, Paga = paga, Agora = DateTime.Now, UsuarioId = usuarioId });
     }
 
     public async Task<Negociacao?> ObterPorId(int id)
@@ -130,9 +142,22 @@ public class NegociacaoRepository : BaseRepository
         if (filtro.CorretorId.HasValue) { where.Add("n.corretor_id=@CorretorId"); parameters.Add("CorretorId", filtro.CorretorId); }
         if (!string.IsNullOrEmpty(filtro.Uf)) { where.Add("mo.uf=@Uf"); parameters.Add("Uf", filtro.Uf.ToUpper()); }
         if (!string.IsNullOrEmpty(filtro.CidadeOrigem)) { where.Add("LOWER(mo.nome) LIKE @Cidade"); parameters.Add("Cidade", $"%{filtro.CidadeOrigem.ToLower()}%"); }
-        if (!string.IsNullOrEmpty(filtro.Status) && filtro.Status != "Todos") { where.Add("n.status=@Status"); parameters.Add("Status", filtro.Status); }
+        if (!string.IsNullOrEmpty(filtro.Status) && filtro.Status != "Todos")
+        {
+            where.Add("n.status=@Status");
+            parameters.Add("Status", filtro.Status);
+        }
+        else if (string.IsNullOrEmpty(filtro.Status))
+        {
+            // Sem filtro de status explícito: listagem "limpa", oculta Concluídas por padrão.
+            where.Add("n.status <> 'Concluido'");
+        }
         if (filtro.Ano.HasValue) { where.Add("EXTRACT(YEAR FROM n.criado_em)=@Ano"); parameters.Add("Ano", filtro.Ano); }
         if (filtro.Mes.HasValue) { where.Add("EXTRACT(MONTH FROM n.criado_em)=@Mes"); parameters.Add("Mes", filtro.Mes); }
+        if (filtro.DataInicio.HasValue) { where.Add("n.criado_em >= @DataInicio"); parameters.Add("DataInicio", filtro.DataInicio); }
+        if (filtro.DataFim.HasValue) { where.Add("n.criado_em <= @DataFim"); parameters.Add("DataFim", filtro.DataFim.Value.AddDays(1)); }
+        if (filtro.Comissao == "Paga") where.Add("n.comissao_paga = true");
+        else if (filtro.Comissao == "NaoPaga") where.Add("n.comissao_paga = false");
 
         var whereClause = where.Count > 0 ? "WHERE " + string.Join(" AND ", where) : "";
         var offset = (filtro.Pagina - 1) * filtro.TamanhoPagina;

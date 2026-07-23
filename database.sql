@@ -91,18 +91,24 @@ CREATE TABLE IF NOT EXISTS config_comissao (
 );
 
 CREATE TABLE IF NOT EXISTS negociacoes (
-    id                    SERIAL PRIMARY KEY,
-    numero                VARCHAR(20)  NOT NULL UNIQUE,
-    comprador_id          INTEGER      REFERENCES usuarios(id),
-    corretor_id           INTEGER      REFERENCES corretores(id),
-    municipio_origem_id   INTEGER      REFERENCES municipios_origem(id),
-    municipio_destino_id  INTEGER      REFERENCES municipios_destino(id),
-    data_prevista_entrega DATE         DEFAULT NULL,
-    observacoes           VARCHAR(500) DEFAULT NULL,
-    status                VARCHAR(30)  NOT NULL DEFAULT 'EmNegociacao',
-    data_fechamento       TIMESTAMP    DEFAULT NULL,
-    criado_em             TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em         TIMESTAMP    DEFAULT NULL
+    id                       SERIAL PRIMARY KEY,
+    numero                   VARCHAR(20)  NOT NULL UNIQUE,
+    comprador_id             INTEGER      REFERENCES usuarios(id),
+    corretor_id              INTEGER      REFERENCES corretores(id),
+    municipio_origem_id      INTEGER      REFERENCES municipios_origem(id),
+    municipio_destino_id     INTEGER      REFERENCES municipios_destino(id),
+    data_prevista_entrega    DATE         DEFAULT NULL,
+    observacoes              VARCHAR(500) DEFAULT NULL,
+    status                   VARCHAR(30)  NOT NULL DEFAULT 'EmNegociacao'
+                             CHECK (status IN ('EmNegociacao','Fechado','EmEntrega','Concluido')),
+    data_fechamento          TIMESTAMP    DEFAULT NULL,
+    tipo_negocio             VARCHAR(10)  NOT NULL DEFAULT 'KG' CHECK (tipo_negocio IN ('Perna','KG')),
+    comissao_paga            BOOLEAN      NOT NULL DEFAULT FALSE,
+    comissao_paga_em         TIMESTAMP    DEFAULT NULL,
+    comissao_paga_por        INTEGER      REFERENCES usuarios(id),
+    embarques_ultimo_numero  INTEGER      NOT NULL DEFAULT 0,
+    criado_em                TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em            TIMESTAMP    DEFAULT NULL
 );
 
 -- Migração: adiciona coluna observacoes em bancos já existentes
@@ -150,6 +156,80 @@ GROUP BY 1
 ON CONFLICT (ano) DO NOTHING;
 
 -- ============================================================
+-- FASE 2 — Embarques, Chegada e Conferência Administrativa
+-- (ver backend/migrations/002_fase2_embarques_chegada_conferencia.sql
+-- para a versão com backfill, usada em bancos já existentes)
+-- ============================================================
+
+-- Desmembramento por produtor/lote (um lote = um produtor + uma categoria)
+CREATE TABLE IF NOT EXISTS negociacao_produtores (
+    id               SERIAL PRIMARY KEY,
+    negociacao_id    INTEGER NOT NULL REFERENCES negociacoes(id) ON DELETE CASCADE,
+    categoria_id     INTEGER NOT NULL REFERENCES categorias(id),
+    produtor_origem  VARCHAR(150) NOT NULL,
+    qtd_cb           INTEGER NOT NULL CHECK (qtd_cb > 0),
+    observacoes      VARCHAR(500),
+    criado_em        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em    TIMESTAMP DEFAULT NULL
+);
+
+-- Embarques (carregamento de caminhão, vinculado à negociação e ao lote/produtor)
+CREATE TABLE IF NOT EXISTS embarques (
+    id                       SERIAL PRIMARY KEY,
+    negociacao_id            INTEGER NOT NULL REFERENCES negociacoes(id) ON DELETE CASCADE,
+    numero                   INTEGER NOT NULL,             -- sequencial dentro da negociação ("Emb. 1", "Emb. 2"...)
+    produtor_origem          VARCHAR(150) NOT NULL,        -- snapshot do produtor do embarque
+    municipio_destino_id     INTEGER REFERENCES municipios_destino(id),
+    data_embarque            DATE DEFAULT NULL,
+    nf                       VARCHAR(30) DEFAULT NULL,
+    gta                      VARCHAR(30) DEFAULT NULL,
+    observacoes_chegada      VARCHAR(500) DEFAULT NULL,
+    chegada_confirmada_em    TIMESTAMP DEFAULT NULL,
+    chegada_confirmada_por   INTEGER REFERENCES usuarios(id),
+    criado_em                TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    criado_por               INTEGER NOT NULL REFERENCES usuarios(id),
+    atualizado_em            TIMESTAMP DEFAULT NULL,
+    UNIQUE (negociacao_id, numero)
+);
+
+-- Itens do embarque, por categoria — chegada embutida aqui (qtd_chegou,
+-- peso_medio_entrada, animais_debilitados), sem tabela própria: é relação
+-- 1:1 estrita (um evento de chegada por embarque).
+CREATE TABLE IF NOT EXISTS embarque_itens (
+    id                     SERIAL PRIMARY KEY,
+    embarque_id            INTEGER NOT NULL REFERENCES embarques(id) ON DELETE CASCADE,
+    negociacao_produtor_id INTEGER NOT NULL REFERENCES negociacao_produtores(id) ON DELETE CASCADE,
+    qtd_embarcada          INTEGER NOT NULL CHECK (qtd_embarcada > 0),
+    qtd_chegou             INTEGER CHECK (qtd_chegou IS NULL OR qtd_chegou >= 0),
+    peso_medio_entrada     DECIMAL(10,2) DEFAULT NULL,
+    animais_debilitados    INTEGER NOT NULL DEFAULT 0 CHECK (animais_debilitados >= 0),
+    UNIQUE (embarque_id, negociacao_produtor_id)
+);
+
+-- Conferência administrativa, 1:1 com embarque
+CREATE TABLE IF NOT EXISTS embarque_conferencias (
+    id                        SERIAL PRIMARY KEY,
+    embarque_id               INTEGER NOT NULL UNIQUE REFERENCES embarques(id) ON DELETE CASCADE,
+    status                    VARCHAR(20) NOT NULL DEFAULT 'EmAndamento', -- EmAndamento | Finalizada
+    valor_total_negociacao    DECIMAL(12,2) DEFAULT NULL,
+    valor_total_icms          DECIMAL(12,2) DEFAULT NULL,
+    comissao_cb               DECIMAL(10,2) DEFAULT NULL,
+    icms_cb                   DECIMAL(10,2) DEFAULT NULL,
+    frete_cb                  DECIMAL(10,2) DEFAULT NULL,
+    despesa_cb                DECIMAL(10,2) DEFAULT NULL,
+    rs_cb                     DECIMAL(10,2) DEFAULT NULL,
+    total_final_cb            DECIMAL(10,2) DEFAULT NULL,
+    rs_kg_negociacao          DECIMAL(10,4) DEFAULT NULL,
+    rs_kg_colocado            DECIMAL(10,4) DEFAULT NULL,
+    percentual_quebra_desvio  DECIMAL(6,2) DEFAULT NULL,
+    observacao_ocorrencias    VARCHAR(500) DEFAULT NULL,
+    finalizada_em             TIMESTAMP DEFAULT NULL,
+    finalizada_por            INTEGER REFERENCES usuarios(id),
+    criado_em                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em             TIMESTAMP DEFAULT NULL
+);
+
+-- ============================================================
 -- ÍNDICES
 -- ============================================================
 
@@ -163,6 +243,13 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_usuario        ON auditoria(usuario_id)
 CREATE INDEX IF NOT EXISTS idx_auditoria_data_hora      ON auditoria(data_hora DESC);
 CREATE INDEX IF NOT EXISTS idx_municipios_origem_uf     ON municipios_origem(uf);
 CREATE INDEX IF NOT EXISTS idx_icms_uf                  ON icms(uf);
+CREATE INDEX IF NOT EXISTS idx_neg_produtores_negociacao ON negociacao_produtores(negociacao_id);
+CREATE INDEX IF NOT EXISTS idx_neg_produtores_neg_cat    ON negociacao_produtores(negociacao_id, categoria_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_neg_produtores_nome_categoria
+    ON negociacao_produtores (negociacao_id, categoria_id, LOWER(TRIM(produtor_origem)));
+CREATE INDEX IF NOT EXISTS idx_embarques_negociacao      ON embarques(negociacao_id);
+CREATE INDEX IF NOT EXISTS idx_embarque_itens_embarque   ON embarque_itens(embarque_id);
+CREATE INDEX IF NOT EXISTS idx_embarque_itens_lote       ON embarque_itens(negociacao_produtor_id);
 
 -- ============================================================
 -- DADOS INICIAIS

@@ -109,7 +109,7 @@ public class DashboardController : ControllerBase
                 cat.ordem,
                 COALESCE(SUM(ni.qtd_negociada), 0) AS qtd_total,
                 COALESCE(SUM(CASE WHEN n.status = 'EmNegociacao' THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_andamento,
-                COALESCE(SUM(CASE WHEN n.status = 'Fechado'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas,
+                COALESCE(SUM(CASE WHEN n.status <> 'EmNegociacao'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas,
                 ROUND(
                     SUM(ni.qtd_negociada * ni.preco_negociado * ni.peso_medio) /
                     NULLIF(SUM(ni.qtd_negociada * ni.peso_medio), 0), 4
@@ -235,7 +235,7 @@ public class DashboardController : ControllerBase
                 COUNT(DISTINCT n.id) AS total_negociacoes,
                 COALESCE(SUM(ni.qtd_negociada), 0) AS qtd_total,
                 COALESCE(SUM(CASE WHEN n.status = 'EmNegociacao' THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_andamento,
-                COALESCE(SUM(CASE WHEN n.status = 'Fechado'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas,
+                COALESCE(SUM(CASE WHEN n.status <> 'EmNegociacao'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas,
                 ROUND(
                     SUM(ni.qtd_negociada * ni.preco_negociado * ni.peso_medio) /
                     NULLIF(SUM(ni.qtd_negociada * ni.peso_medio), 0), 4
@@ -279,7 +279,7 @@ public class DashboardController : ControllerBase
                 c.nome AS corretor_nome,
                 COALESCE(SUM(ni.qtd_negociada), 0) AS qtd_total,
                 COALESCE(SUM(CASE WHEN n.status = 'EmNegociacao' THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_andamento,
-                COALESCE(SUM(CASE WHEN n.status = 'Fechado'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas,
+                COALESCE(SUM(CASE WHEN n.status <> 'EmNegociacao'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas,
                 ROUND(
                     SUM(ni.qtd_negociada * ni.preco_negociado * ni.peso_medio) /
                     NULLIF(SUM(ni.qtd_negociada * ni.peso_medio), 0), 4
@@ -328,7 +328,7 @@ public class DashboardController : ControllerBase
                 cat.peso_min,
                 cat.peso_max,
                 COALESCE(SUM(CASE WHEN n.status = 'EmNegociacao' THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_andamento,
-                COALESCE(SUM(CASE WHEN n.status = 'Fechado'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas
+                COALESCE(SUM(CASE WHEN n.status <> 'EmNegociacao'      THEN ni.qtd_negociada ELSE 0 END), 0) AS cb_fechadas
             FROM negociacao_itens ni
             JOIN negociacoes n  ON n.id  = ni.negociacao_id
             JOIN categorias cat ON cat.id = ni.categoria_id
@@ -350,7 +350,7 @@ public class DashboardController : ControllerBase
         var contagemSql = $@"
             SELECT
                 COALESCE(SUM(CASE WHEN n.status = 'EmNegociacao' THEN 1 ELSE 0 END), 0) AS neg_andamento,
-                COALESCE(SUM(CASE WHEN n.status = 'Fechado'      THEN 1 ELSE 0 END), 0) AS neg_fechadas
+                COALESCE(SUM(CASE WHEN n.status <> 'EmNegociacao'      THEN 1 ELSE 0 END), 0) AS neg_fechadas
             FROM negociacoes n
             LEFT JOIN municipios_origem mo ON mo.id = n.municipio_origem_id
             {where}";
@@ -421,6 +421,33 @@ public class DashboardController : ControllerBase
         };
     }
 
+    /// <summary>Total de comissão paga/pendente no período filtrado (aproximado a partir do percentual ativo).</summary>
+    /// <param name="filtro">Filtros opcionais (comprador, corretor, período, etc).</param>
+    /// <response code="200">Totais de comissão paga e pendente.</response>
+    [HttpGet("comissoes")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Comissoes([FromQuery] NegociacaoFiltroRequest filtro)
+    {
+        var connStr = _config.GetConnectionString("DefaultConnection")!;
+        using var conn = new NpgsqlConnection(connStr);
+
+        var where = BuildWhere(filtro, out var parameters);
+
+        var sql = $@"
+            SELECT
+                COALESCE(SUM(CASE WHEN n.comissao_paga = false THEN ni.qtd_negociada * ni.peso_medio * ni.preco_negociado * (cc.percentual/100) ELSE 0 END), 0) AS total_pendente,
+                COALESCE(SUM(CASE WHEN n.comissao_paga = true  THEN ni.qtd_negociada * ni.peso_medio * ni.preco_negociado * (cc.percentual/100) ELSE 0 END), 0) AS total_pago,
+                COUNT(DISTINCT CASE WHEN n.comissao_paga = false THEN n.id END) AS negociacoes_pendentes
+            FROM negociacoes n
+            JOIN negociacao_itens ni ON ni.negociacao_id = n.id
+            LEFT JOIN municipios_origem mo ON mo.id = n.municipio_origem_id
+            CROSS JOIN (SELECT COALESCE((SELECT percentual FROM config_comissao WHERE ativo=true LIMIT 1), 0) AS percentual) cc
+            {where}";
+
+        var result = await conn.QuerySingleAsync(sql, parameters);
+        return Ok(result);
+    }
+
     [HttpGet("anos")]
     public async Task<IActionResult> Anos()
     {
@@ -448,6 +475,10 @@ public class DashboardController : ControllerBase
         if (!string.IsNullOrEmpty(filtro.Status) && filtro.Status != "Todos") { where.Add("n.status=@Status"); parameters.Add("Status", filtro.Status); }
         if (filtro.Ano.HasValue) { where.Add("EXTRACT(YEAR FROM n.criado_em)=@Ano"); parameters.Add("Ano", filtro.Ano); }
         if (filtro.Mes.HasValue) { where.Add("EXTRACT(MONTH FROM n.criado_em)=@Mes"); parameters.Add("Mes", filtro.Mes); }
+        if (filtro.DataInicio.HasValue) { where.Add("n.criado_em >= @DataInicio"); parameters.Add("DataInicio", filtro.DataInicio); }
+        if (filtro.DataFim.HasValue) { where.Add("n.criado_em <= @DataFim"); parameters.Add("DataFim", filtro.DataFim.Value.AddDays(1)); }
+        if (filtro.Comissao == "Paga") where.Add("n.comissao_paga = true");
+        else if (filtro.Comissao == "NaoPaga") where.Add("n.comissao_paga = false");
 
         return where.Count > 0 ? "WHERE " + string.Join(" AND ", where) : "";
     }
