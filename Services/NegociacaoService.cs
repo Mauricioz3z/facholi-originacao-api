@@ -46,6 +46,7 @@ public class NegociacaoService
             MunicipioDestinoId = request.MunicipioDestinoId,
             DataPrevistaEntrega = request.DataPrevistaEntrega,
             Observacoes = TruncarObservacoes(request.Observacoes),
+            TipoNegocio = request.TipoNegocio == "Perna" ? "Perna" : "KG",
             Status = "EmNegociacao",
             CriadoEm = DateTime.Now
         };
@@ -121,6 +122,7 @@ public class NegociacaoService
         negExistente.MunicipioDestinoId = request.MunicipioDestinoId;
         negExistente.DataPrevistaEntrega = request.DataPrevistaEntrega;
         negExistente.Observacoes = observacoesNovas;
+        negExistente.TipoNegocio = request.TipoNegocio == "Perna" ? "Perna" : "KG";
         negExistente.AtualizadoEm = DateTime.Now;
         negExistente.Itens = await CalcularItens(request.Itens, municipioOrigem);
 

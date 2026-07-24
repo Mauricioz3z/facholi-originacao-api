@@ -34,11 +34,20 @@ public class ConferenciaService
 
     public async Task<EmbarqueConferencia> ObterOuCriar(int embarqueId)
     {
-        var existente = await _confRepo.ObterPorEmbarque(embarqueId);
-        if (existente != null) return existente;
+        var conf = await _confRepo.ObterPorEmbarque(embarqueId);
+        if (conf == null)
+        {
+            conf = new EmbarqueConferencia { EmbarqueId = embarqueId, Status = "EmAndamento", CriadoEm = DateTime.Now };
+            conf.Id = await _confRepo.Criar(conf);
+        }
 
-        var conf = new EmbarqueConferencia { EmbarqueId = embarqueId, Status = "EmAndamento", CriadoEm = DateTime.Now };
-        conf.Id = await _confRepo.Criar(conf);
+        // Recalcula em memória antes de devolver (sem persistir), pra que os campos que não
+        // dependem de input financeiro — R$/kg negociação, R$/kg colocado e % desvio — já
+        // apareçam preenchidos assim que a tela abre, sem precisar salvar primeiro.
+        // Conferência finalizada mantém os valores travados como foram gravados.
+        if (conf.Status != "Finalizada")
+            await CalcularCampos(conf, embarqueId);
+
         return conf;
     }
 
